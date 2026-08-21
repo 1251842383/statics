@@ -47,6 +47,43 @@ body::before{
   0%{opacity:.55}
   100%{opacity:.9}
 }
+
+/* Hero 飘落樱花/光斑 */
+.hero{position:relative}
+.hero::before, .hero::after{
+  content:"";position:absolute;inset:0;pointer-events:none;
+  background-repeat:repeat;
+  animation:fall linear infinite;
+  z-index:0;
+}
+.hero::before{
+  background-image:
+    radial-gradient(4px 4px at 10% 20%, rgba(255,200,220,.85) 0%, transparent 60%),
+    radial-gradient(3px 3px at 30% 60%, rgba(255,180,200,.7) 0%, transparent 60%),
+    radial-gradient(5px 5px at 55% 15%, rgba(220,180,255,.8) 0%, transparent 60%),
+    radial-gradient(3px 3px at 75% 45%, rgba(255,220,180,.7) 0%, transparent 60%),
+    radial-gradient(4px 4px at 90% 75%, rgba(255,200,230,.75) 0%, transparent 60%),
+    radial-gradient(3px 3px at 20% 85%, rgba(200,170,255,.7) 0%, transparent 60%);
+  background-size:100% 100%;
+  animation-duration:18s;
+  opacity:.7;
+}
+.hero::after{
+  background-image:
+    radial-gradient(3px 3px at 15% 40%, rgba(255,210,225,.8) 0%, transparent 60%),
+    radial-gradient(4px 4px at 45% 70%, rgba(230,180,255,.7) 0%, transparent 60%),
+    radial-gradient(3px 3px at 70% 25%, rgba(255,190,210,.75) 0%, transparent 60%),
+    radial-gradient(5px 5px at 85% 55%, rgba(255,220,200,.7) 0%, transparent 60%),
+    radial-gradient(3px 3px at 35% 90%, rgba(220,200,255,.7) 0%, transparent 60%);
+  background-size:100% 100%;
+  animation-duration:24s;
+  animation-direction:reverse;
+  opacity:.5;
+}
+@keyframes fall{
+  0%{transform:translateY(-30%) rotate(0deg)}
+  100%{transform:translateY(30%) rotate(360deg)}
+}
 img{max-width:100%;display:block}
 button{font-family:inherit;border:0;cursor:pointer;background:transparent;color:inherit}
 ::-webkit-scrollbar{width:4px}
@@ -120,6 +157,8 @@ button{font-family:inherit;border:0;cursor:pointer;background:transparent;color:
   transition:transform .35s cubic-bezier(.2,.8,.2,1), box-shadow .35s, border-color .35s;
   transform-style:preserve-3d;
   will-change:transform;
+  width:min(260px,80vw);
+  aspect-ratio:3/4;
 }
 .chapter-photos{
   opacity:1;transform:none;
@@ -920,7 +959,7 @@ window.addEventListener('load', attach3DTilt);
 window.addEventListener('scroll', attach3DTilt, { passive: true });
 
 /* ============================================================
-   Hero 银河（Three.js 简单版本）
+   Hero 银河（Three.js 浪漫版）
 ============================================================ */
 (function heroGalaxy(){
   if (typeof THREE === 'undefined') return;
@@ -933,52 +972,213 @@ window.addEventListener('scroll', attach3DTilt, { passive: true });
   const camera = new THREE.PerspectiveCamera(75, innerWidth / innerHeight, 0.1, 1000);
   camera.position.z = 30;
 
-  // 粒子
-  const N = 2000;
+  // 1. 主粒子云（多色大数量）
+  const N = 5000;
   const positions = new Float32Array(N * 3);
   const colors = new Float32Array(N * 3);
+  const palette = [
+    [1.0, 0.85, 0.95],   // 樱花粉
+    [1.0, 0.75, 0.85],   // 玫瑰粉
+    [0.78, 0.66, 1.0],   // 薰衣草紫
+    [1.0, 0.65, 0.95],   // 桃粉
+    [1.0, 0.93, 0.78],   // 暖金
+    [0.85, 0.95, 1.0],   // 月白
+    [0.95, 0.6, 0.75],   // 玫红
+  ];
   for (let i = 0; i < N; i++) {
-    const r = 5 + Math.random() * 80;
+    const r = 4 + Math.random() * 90;
     const theta = Math.random() * Math.PI * 2;
     const phi = Math.acos(2 * Math.random() - 1);
-    positions[i*3] = r * Math.sin(phi) * Math.cos(theta);
+    positions[i*3]   = r * Math.sin(phi) * Math.cos(theta);
     positions[i*3+1] = r * Math.sin(phi) * Math.sin(theta);
     positions[i*3+2] = r * Math.cos(phi);
-    const c = Math.random();
-    if (c < 0.33) { colors[3*i] = 0.95; colors[3*i+1] = 0.6; colors[3*i+2] = 0.75; }
-    else if (c < 0.66) { colors[3*i] = 0.75; colors[3*i+1] = 0.65; colors[3*i+2] = 1; }
-    else { colors[3*i] = 1; colors[3*i+1] = 0.85; colors[3*i+2] = 0.7; }
+    const p = palette[(Math.random() * palette.length) | 0];
+    colors[3*i]   = p[0];
+    colors[3*i+1] = p[1];
+    colors[3*i+2] = p[2];
   }
   const geom = new THREE.BufferGeometry();
   geom.setAttribute('position', new THREE.BufferAttribute(positions, 3));
   geom.setAttribute('color', new THREE.BufferAttribute(colors, 3));
   const mat = new THREE.PointsMaterial({
-    size: 0.4, vertexColors: true, transparent: true, opacity: 0.8,
-    blending: THREE.AdditiveBlending
+    size: 0.55, vertexColors: true, transparent: true, opacity: 0.85,
+    blending: THREE.AdditiveBlending, depthWrite: false
   });
   const points = new THREE.Points(geom, mat);
   scene.add(points);
 
-  // 大光晕球
+  // 2. 螺旋臂粒子（浪漫的弧线）
+  const armCount = 4;
+  const perArm = 800;
+  const totalArm = armCount * perArm;
+  const armPos = new Float32Array(totalArm * 3);
+  const armCol = new Float32Array(totalArm * 3);
+  for (let a = 0; a < armCount; a++) {
+    for (let i = 0; i < perArm; i++) {
+      const t = i / perArm;
+      const radius = 6 + t * 60;
+      const angle = a * (Math.PI * 2 / armCount) + t * Math.PI * 4 + (Math.random() - 0.5) * 0.4;
+      const y = (Math.random() - 0.5) * (8 - t * 6);
+      const idx = a * perArm + i;
+      armPos[idx*3]   = Math.cos(angle) * radius;
+      armPos[idx*3+1] = y;
+      armPos[idx*3+2] = Math.sin(angle) * radius;
+      const warm = Math.random();
+      if (warm < 0.5) {
+        armCol[idx*3]=1.0; armCol[idx*3+1]=0.75; armCol[idx*3+2]=0.85;
+      } else {
+        armCol[idx*3]=0.78; armCol[idx*3+1]=0.66; armCol[idx*3+2]=1.0;
+      }
+    }
+  }
+  const armGeom = new THREE.BufferGeometry();
+  armGeom.setAttribute('position', new THREE.BufferAttribute(armPos, 3));
+  armGeom.setAttribute('color', new THREE.BufferAttribute(armCol, 3));
+  const armMat = new THREE.PointsMaterial({
+    size: 0.7, vertexColors: true, transparent: true, opacity: 0.9,
+    blending: THREE.AdditiveBlending, depthWrite: false
+  });
+  const armPoints = new THREE.Points(armGeom, armMat);
+  scene.add(armPoints);
+
+  // 3. 中心脉冲光晕（呼吸感）
   const halo = new THREE.Mesh(
     new THREE.SphereGeometry(15, 32, 32),
-    new THREE.MeshBasicMaterial({ color: 0xc19a6b, transparent: true, opacity: 0.06 })
+    new THREE.MeshBasicMaterial({ color: 0xffb8d6, transparent: true, opacity: 0.08, blending: THREE.AdditiveBlending })
   );
   scene.add(halo);
+  const halo2 = new THREE.Mesh(
+    new THREE.SphereGeometry(25, 32, 32),
+    new THREE.MeshBasicMaterial({ color: 0xc8a8ff, transparent: true, opacity: 0.04, blending: THREE.AdditiveBlending })
+  );
+  scene.add(halo2);
 
-  // 鼠标视差
+  // 4. 心形粒子（用 THREE.Shape 画一个心，飘浮环绕）
+  const heartShape = new THREE.Shape();
+  const hs = 1.0;
+  heartShape.moveTo(0, hs * 0.3);
+  heartShape.bezierCurveTo(0, hs * 0.6, -hs * 0.6, hs * 0.8, -hs * 0.6, hs * 0.4);
+  heartShape.bezierCurveTo(-hs * 0.6, 0, -hs * 0.3, -hs * 0.1, 0, -hs * 0.7);
+  heartShape.bezierCurveTo(hs * 0.3, -hs * 0.1, hs * 0.6, 0, hs * 0.6, hs * 0.4);
+  heartShape.bezierCurveTo(hs * 0.6, hs * 0.8, 0, hs * 0.6, 0, hs * 0.3);
+  const heartGeom = new THREE.ShapeGeometry(heartShape);
+
+  const heartCount = 28;
+  const hearts = [];
+  for (let i = 0; i < heartCount; i++) {
+    const t = Math.random() * Math.PI * 2;
+    const r = 18 + Math.random() * 35;
+    const mat = new THREE.MeshBasicMaterial({
+      color: new THREE.Color().setHSL(0.92 + Math.random() * 0.08, 0.7, 0.7),
+      transparent: true, opacity: 0.0, blending: THREE.AdditiveBlending, depthWrite: false
+    });
+    const mesh = new THREE.Mesh(heartGeom, mat);
+    mesh.position.set(Math.cos(t) * r, (Math.random() - 0.5) * 12, Math.sin(t) * r);
+    const s = 0.6 + Math.random() * 0.8;
+    mesh.scale.set(s, s, s);
+    mesh.userData = {
+      baseR: r, angle: t, y: mesh.position.y,
+      phase: Math.random() * Math.PI * 2,
+      speed: 0.0006 + Math.random() * 0.0008,
+      bobAmp: 1 + Math.random() * 2
+    };
+    scene.add(mesh);
+    hearts.push(mesh);
+  }
+
+  // 5. 流星（每条都是一条有头有尾的线）
+  const meteors = [];
+  function spawnMeteor(){
+    const startX = (Math.random() - 0.5) * 100;
+    const startY = 30 + Math.random() * 20;
+    const startZ = (Math.random() - 0.5) * 40 - 20;
+    const dx = (Math.random() - 0.5) * 1.5 - 0.5;
+    const dy = -1.5 - Math.random() * 1.0;
+    const len = 18;
+    const head = new THREE.Mesh(
+      new THREE.SphereGeometry(0.6, 8, 8),
+      new THREE.MeshBasicMaterial({ color: 0xfff5e8, transparent: true, opacity: 1, blending: THREE.AdditiveBlending })
+    );
+    head.position.set(startX, startY, startZ);
+    scene.add(head);
+    const tail = new THREE.Mesh(
+      new THREE.SphereGeometry(0.35, 8, 8),
+      new THREE.MeshBasicMaterial({ color: 0xc8a8ff, transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending })
+    );
+    tail.position.set(startX - dx * 4, startY - dy * 4, startZ);
+    scene.add(tail);
+    meteors.push({ head, tail, dx, dy, life: 0, max: 80 + Math.random() * 40, len });
+  }
+  // 立即播 3 颗
+  for (let i = 0; i < 3; i++) spawnMeteor();
+
+  // 6. 鼠标视差
   let mx = 0, my = 0;
-  addEventListener('mousemove', e => { mx = (e.clientX/innerWidth-.5)*.3; my = (e.clientY/innerHeight-.5)*.3; });
+  addEventListener('mousemove', e => { mx = (e.clientX/innerWidth-.5)*.4; my = (e.clientY/innerHeight-.5)*.4; });
+
+  // 7. 计时器
+  let t0 = performance.now();
+  let lastMeteor = t0;
+  let lastHeart = 0;
 
   function loop(){
-    points.rotation.y += 0.0008;
-    points.rotation.x += 0.0003;
-    halo.rotation.y -= 0.001;
-    camera.position.x += (mx*5 - camera.position.x) * .05;
-    camera.position.y += (-my*5 - camera.position.y) * .05;
-    camera.lookAt(0, 0, 0);
-    renderer.render(scene, camera);
     requestAnimationFrame(loop);
+    const now = performance.now();
+    const t = (now - t0) / 1000;
+
+    // 主粒子旋转（更明显）
+    points.rotation.y += 0.003;
+    points.rotation.x = Math.sin(t * 0.2) * 0.15;
+
+    // 螺旋臂反向旋转（更有层次）
+    armPoints.rotation.y -= 0.0015;
+    armPoints.rotation.y += 0.0008;
+
+    // 心形粒子：环绕 + 上下浮动 + 淡入淡出脉冲
+    hearts.forEach((h, i) => {
+      const u = h.userData;
+      u.angle += u.speed;
+      h.position.x = Math.cos(u.angle) * u.baseR;
+      h.position.z = Math.sin(u.angle) * u.baseR;
+      h.position.y = u.y + Math.sin(t * 0.7 + u.phase) * u.bobAmp;
+      // 周期性亮起（每 4-7s 一个心亮一次）
+      const cycle = (t + i * 0.5) % 5;
+      h.material.opacity = cycle < 1.2 ? 0.55 * Math.sin((cycle / 1.2) * Math.PI) : 0;
+      h.rotation.z = Math.sin(t * 0.5 + u.phase) * 0.3;
+    });
+
+    // 光晕呼吸
+    halo.scale.setScalar(1 + Math.sin(t * 0.8) * 0.15);
+    halo.material.opacity = 0.08 + Math.sin(t * 0.8) * 0.04;
+    halo2.rotation.y -= 0.001;
+    halo2.material.opacity = 0.04 + Math.cos(t * 0.5) * 0.02;
+
+    // 流星
+    if (now - lastMeteor > 1800 + Math.random() * 1200) {
+      spawnMeteor();
+      lastMeteor = now;
+    }
+    for (let i = meteors.length - 1; i >= 0; i--) {
+      const m = meteors[i];
+      m.life++;
+      m.head.position.x += m.dx;
+      m.head.position.y += m.dy;
+      m.tail.position.x += m.dx;
+      m.tail.position.y += m.dy;
+      m.head.material.opacity = Math.max(0, 1 - m.life / m.max);
+      m.tail.material.opacity = Math.max(0, 0.6 * (1 - m.life / m.max));
+      if (m.life > m.max) {
+        scene.remove(m.head); scene.remove(m.tail);
+        meteors.splice(i, 1);
+      }
+    }
+
+    // 鼠标视差
+    camera.position.x += (mx * 8 - camera.position.x) * 0.06;
+    camera.position.y += (-my * 8 - camera.position.y) * 0.06;
+    camera.lookAt(0, 0, 0);
+
+    renderer.render(scene, camera);
   }
   loop();
   addEventListener('resize', () => { camera.aspect = innerWidth/innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
