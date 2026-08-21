@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="theme-color" content="#000010">
+<meta name="theme-color" content="#1c1438">
 <title>爱的回忆</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -15,9 +15,37 @@
 html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
 body{
   font-family:"Noto Serif SC","Playfair Display",serif;
-  background:#000010;color:#fff;overflow-x:hidden;
+  background:
+    radial-gradient(ellipse 80% 60% at 20% 0%, rgba(120,80,180,.22) 0%, transparent 60%),
+    radial-gradient(ellipse 70% 50% at 80% 30%, rgba(220,150,180,.14) 0%, transparent 60%),
+    radial-gradient(ellipse 90% 60% at 50% 100%, rgba(193,154,107,.18) 0%, transparent 65%),
+    linear-gradient(165deg, #1c1438 0%, #2a1845 35%, #1a1240 70%, #0e0a28 100%);
+  background-attachment:fixed;
+  color:#fff;overflow-x:hidden;
   -webkit-font-smoothing:antialiased;
   cursor:default;
+  min-height:100vh;
+}
+body::before{
+  content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+  background-image:
+    radial-gradient(1px 1px at 12% 18%, rgba(255,255,255,.7), transparent),
+    radial-gradient(1px 1px at 28% 42%, rgba(255,255,255,.5), transparent),
+    radial-gradient(1px 1px at 47% 8%, rgba(255,235,210,.8), transparent),
+    radial-gradient(1px 1px at 63% 67%, rgba(255,255,255,.6), transparent),
+    radial-gradient(1px 1px at 78% 22%, rgba(220,200,255,.7), transparent),
+    radial-gradient(1px 1px at 88% 78%, rgba(255,210,200,.5), transparent),
+    radial-gradient(1px 1px at 8% 88%, rgba(255,255,255,.4), transparent),
+    radial-gradient(1px 1px at 35% 72%, rgba(200,168,255,.6), transparent),
+    radial-gradient(1px 1px at 52% 35%, rgba(255,255,255,.5), transparent),
+    radial-gradient(1px 1px at 92% 52%, rgba(255,235,210,.7), transparent),
+    radial-gradient(1px 1px at 18% 58%, rgba(255,255,255,.5), transparent);
+  opacity:.7;
+  animation:starlight 12s ease-in-out infinite alternate;
+}
+@keyframes starlight{
+  0%{opacity:.55}
+  100%{opacity:.9}
 }
 img{max-width:100%;display:block}
 button{font-family:inherit;border:0;cursor:pointer;background:transparent;color:inherit}
@@ -303,7 +331,7 @@ body.js-on .chapter.in .chapter-photos{
 .divider::after{
   content:"✦";position:absolute;left:50%;top:50%;
   transform:translate(-50%,-50%);
-  background:#000010;padding:0 1rem;
+  background:linear-gradient(165deg,#1c1438,#2a1845);padding:0 1rem;
   color:#c19a6b;font-size:.8rem;
 }
 
