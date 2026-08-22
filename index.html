@@ -951,24 +951,6 @@ button,.photo-card,.video-card,.wish-card{cursor:pointer;-webkit-tap-highlight-c
 
 <div class="divider"></div>
 
-<!-- Chapter 08 · 蜜月 · 海浪+云 -->
-<section class="chapter" data-chapter="8" data-effect="honeymoon" id="ch8">
-  <canvas class="bg-canvas"></canvas>
-  <div class="content-card">
-    <div class="chapter-label">Chapter 08 · Honeymoon</div>
-    <h2 class="chapter-title">蜜月 · <em>慢时光</em></h2>
-    <div class="chapter-date">2024.03 — 04</div>
-    <p class="chapter-copy">
-      从此以后，<br>
-      一起吃早餐，一起看晚霞，<br>
-      一起在平凡的日子里，<br>
-      慢慢相爱。
-    </p>
-  </div>
-</section>
-
-<div class="divider"></div>
-
 <!-- Chapter 11 · 柯柯来了 · 蝴蝶 -->
 <section class="chapter" data-chapter="11" data-effect="butterfly" id="ch11">
   <canvas class="bg-canvas"></canvas>
@@ -1175,7 +1157,6 @@ async function loadAllPhotos() {
   ALL_PHOTOS[5] = await getPhotos('chapter-05-graduation');
   ALL_PHOTOS[6] = await getPhotos('chapter-06-daily');
   ALL_PHOTOS[7] = await getPhotos('chapter-07-wedding');
-  ALL_PHOTOS[8] = await getPhotos('chapter-08-honeymoon');
   ALL_PHOTOS[11] = await getPhotos('chapter-11-baby');
   // Chapter 17 许愿 — 纯粒子动效，不需要照片
 
@@ -2861,112 +2842,6 @@ async function buildWedding(chapterEl){
 }
 
 /* ============================================================
-   Chapter 08 · 蜜月 · 海面 + 云 + 照片
-============================================================ */
-async function buildHoneymoon(chapterEl){
-  if (chapterEl.dataset.built) return;
-  chapterEl.dataset.built = '1';
-  const canvas = chapterEl.querySelector('.bg-canvas');
-  const { renderer, scene, camera } = makeScene(canvas);
-  const w = canvas.clientWidth, h = canvas.clientHeight;
-  camera.position.set(0, 5, 30);
-
-  // 海面（同Chapter 4，更温和）
-  const seaGeo = new T.PlaneGeometry(200, 200, 60, 60);
-  const seaMat = new T.MeshStandardMaterial({
-    color: 0x4a90c4, metalness: 0.5, roughness: 0.3,
-    transparent: true, opacity: 0.7
-  });
-  const sea = new T.Mesh(seaGeo, seaMat);
-  sea.rotation.x = -Math.PI / 2;
-  sea.position.y = -3;
-  scene.add(sea);
-
-  // 云朵
-  const clouds = [];
-  for (let i = 0; i < 8; i++) {
-    const grp = new T.Group();
-    const mat = new T.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.85 });
-    for (let j = 0; j < 4; j++) {
-      const puff = new T.Mesh(new T.SphereGeometry(rand(1, 2.5), 12, 12), mat);
-      puff.position.set(j * 2, rand(-0.5, 0.5), 0);
-      grp.add(puff);
-    }
-    grp.position.set(rand(-30, 30), rand(8, 15), rand(-20, -5));
-    grp.userData = { vx: rand(-0.02, -0.005) };
-    scene.add(grp);
-    clouds.push(grp);
-  }
-
-  scene.add(new T.AmbientLight(0xffffff, 0.8));
-  const sun = new T.DirectionalLight(0xffe0b0, 1);
-  sun.position.set(15, 20, -10);
-  scene.add(sun);
-
-  // 照片卡片
-  const photos = ALL_PHOTOS[8] || [];
-  const photoSprites = [];
-  for (let i = 0; i < Math.min(photos.length, 5); i++) {
-    const sp = await makePhotoSprite(photos[i], 256);
-    if (sp) {
-      sp.position.set(rand(-10, 10), rand(-2, 5), rand(-5, 5));
-      sp.scale.set(2, 2, 1);
-      sp.userData = { baseY: sp.position.y, phase: rand(0, Math.PI * 2), baseX: sp.position.x, vx: rand(-0.02, 0.02) };
-      scene.add(sp);
-      photoSprites.push(sp);
-    }
-  }
-
-  function loop(){
-    const t = performance.now() * 0.001;
-    const pos = seaGeo.attributes.position.array;
-    for (let i = 0; i < pos.length; i += 3) {
-      const x = pos[i], z = pos[i+2];
-      pos[i+1] = Math.sin(x * 0.2 + t * 0.7) * 0.3 + Math.cos(z * 0.15 + t) * 0.2;
-    }
-    seaGeo.attributes.position.needsUpdate = true;
-
-    clouds.forEach(c => {
-      c.position.x += c.userData.vx;
-      if (c.position.x < -35) c.position.x = 35;
-    });
-
-    photoSprites.forEach(sp => {
-      sp.position.y = sp.userData.baseY + Math.sin(t * 0.5 + sp.userData.phase) * 0.4;
-      sp.position.x = sp.userData.baseX + Math.sin(t * 0.3 + sp.userData.phase) * 0.3;
-      sp.lookAt(camera.position);
-    });
-
-    renderer.render(scene, camera);
-  }
-  addRAF(loop);
-
-  if (photoSprites.length) {
-    const raycaster = new T.Raycaster();
-    const mouse = new T.Vector2();
-    canvas.style.pointerEvents = 'auto';
-    canvas.style.cursor = 'pointer';
-    canvas.addEventListener('click', e => {
-      const r = canvas.getBoundingClientRect();
-      mouse.x = ((e.clientX - r.left) / r.width) * 2 - 1;
-      mouse.y = -((e.clientY - r.top) / r.height) * 2 + 1;
-      raycaster.setFromCamera(mouse, camera);
-      const hits = raycaster.intersectObjects(photoSprites);
-      if (hits.length) {
-        const i = photoSprites.indexOf(hits[0].object);
-        if (i >= 0) openLightbox(photos, photoSprites[i]?.userData?.photoIdx ?? i);
-      }
-    });
-  }
-
-  window.addEventListener('resize', () => {
-    const w = canvas.clientWidth, h = canvas.clientHeight;
-    renderer.setSize(w, h, false);
-    camera.aspect = w / h; camera.updateProjectionMatrix();
-  });
-}
-
-/* ============================================================
    Chapter 11 · 柯柯来了 · 蝴蝶 + 照片阵列
 ============================================================ */
 async function buildButterfly(chapterEl){
@@ -3435,7 +3310,6 @@ const effectBuilders = {
   '5': buildGraduation,
   '6': buildDaily,
   '7': buildWedding,
-  '8': buildHoneymoon,
   '11': buildButterfly,
   '14': buildVideo,
   '15': buildAR,
