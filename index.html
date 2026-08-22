@@ -1219,7 +1219,10 @@ function makeScene(canvas) {
 function makePhotoSprite(src, size = 200) {
   return new Promise(resolve => {
     const img = new Image();
-    img.crossOrigin = 'anonymous';
+    // 仅跨域才需要 crossOrigin
+    if (/^https?:\/\//.test(src) && !src.startsWith(location.origin)) {
+      img.crossOrigin = 'anonymous';
+    }
     img.onload = () => {
       const c = document.createElement('canvas');
       c.width = c.height = size;
@@ -1253,7 +1256,10 @@ function makePhotoSprite(src, size = 200) {
       sprite.scale.set(size / 100, size / 100, 1);
       resolve(sprite);
     };
-    img.onerror = () => resolve(null);
+    img.onerror = () => {
+      console.warn('[PhotoSprite] Failed to load:', src);
+      resolve(null);
+    };
     img.src = src;
   });
 }
@@ -1589,7 +1595,7 @@ async function buildMeteor(chapterEl){
   scene.add(nebula2);
 
   // 3. 流星群（大幅增加数量 + 重复使用照片）
-  const meteorCount = Math.floor(220 * PARTICLE_SCALE);
+  const meteorCount = Math.floor(180 * PARTICLE_SCALE);
   const photoMeteors = [];
 
   const photos = ALL_PHOTOS[1] || [];
@@ -1599,12 +1605,13 @@ async function buildMeteor(chapterEl){
       const sprite = await makePhotoSprite(photos[i], 256);
       if (sprite) photoMeteors.push(sprite);
     }
+    console.log('[Ch01] Meteor loaded', photoMeteors.length, 'photo sprites from', photos.length, 'photos');
   }
   const photoN = photoMeteors.length;
 
   const meteors = [];
   for (let i = 0; i < meteorCount; i++) {
-    const isPhoto = photoN > 0 && (i % 3 === 0); // 每 3 个有 1 个是照片（复用）
+    const isPhoto = photoN > 0 && (i % 5 < 2); // 5个里2个是照片（更显眼）
     let mesh;
     if (isPhoto) {
       const src = photoMeteors[i % photoN];
