@@ -398,13 +398,12 @@ button{font-family:inherit;border:0;cursor:pointer;background:transparent;color:
   pointer-events:none;
 }
 @keyframes glowPulse{0%{opacity:.5;transform:translate(-50%,-50%) scale(.9)}100%{opacity:1;transform:translate(-50%,-50%) scale(1.1)}}
-.chapter-title em{
-  font-style:italic;font-weight:300;color:#c8a8ff;
+.chapter-title{
+  font-style:italic;
   background:linear-gradient(135deg,#c8a8ff 0%,#fff 50%,#c19a6b 100%);
   -webkit-background-clip:text;background-clip:text;color:transparent;
-  display:inline-block;
-  animation:emShimmer 3s linear infinite;
   background-size:200% 100%;
+  animation:emShimmer 3s linear infinite;
 }
 @keyframes emShimmer{0%{background-position:0% 0}100%{background-position:200% 0}}
 .chapter-date{
@@ -463,15 +462,17 @@ button{font-family:inherit;border:0;cursor:pointer;background:transparent;color:
 ============================================================ */
 /* Chapter 01 · 流星 · 银白冷调 + 微光闪烁 */
 .chapter[data-effect="meteor"] .chapter-label{color:#d8e8ff;text-shadow:0 0 12px rgba(180,210,255,.6)}
-.chapter[data-effect="meteor"] .chapter-title em{
+.chapter[data-effect="meteor"] .chapter-title{
   background:linear-gradient(135deg,#fff 0%,#d8e8ff 50%,#a8c8ff 100%);
+  background-size:200% 100%;
   -webkit-background-clip:text;background-clip:text;color:transparent;
 }
 
 /* Chapter 02 · 雪山 · 冰蓝雪光 */
 .chapter[data-effect="snow"] .chapter-label{color:#a8d8ff;text-shadow:0 0 14px rgba(168,216,255,.7)}
-.chapter[data-effect="snow"] .chapter-title em{
+.chapter[data-effect="snow"] .chapter-title{
   background:linear-gradient(135deg,#fff 0%,#a8d8ff 50%,#88c5ff 100%);
+  background-size:200% 100%;
   -webkit-background-clip:text;background-clip:text;color:transparent;
 }
 
@@ -479,8 +480,9 @@ button{font-family:inherit;border:0;cursor:pointer;background:transparent;color:
 .chapter[data-effect="neon"] .chapter-label{
   color:#ff5fa8;text-shadow:0 0 14px rgba(255,95,168,.8), 0 0 28px rgba(200,168,255,.5);
 }
-.chapter[data-effect="neon"] .chapter-title em{
+.chapter[data-effect="neon"] .chapter-title{
   background:linear-gradient(135deg,#ff5fa8 0%,#7df0ff 50%,#ffd166 100%);
+  background-size:200% 100%;
   -webkit-background-clip:text;background-clip:text;color:transparent;
   animation:emNeon 2s linear infinite;
 }
@@ -491,57 +493,65 @@ button{font-family:inherit;border:0;cursor:pointer;background:transparent;color:
 
 /* Chapter 04 · 北海海浪 · 阳光暖金 */
 .chapter[data-effect="wave"] .chapter-label{color:#ffd166;text-shadow:0 0 14px rgba(255,209,102,.7)}
-.chapter[data-effect="wave"] .chapter-title em{
+.chapter[data-effect="wave"] .chapter-title{
   background:linear-gradient(135deg,#fff 0%,#ffd166 50%,#ff9b6b 100%);
+  background-size:200% 100%;
   -webkit-background-clip:text;background-clip:text;color:transparent;
 }
 
 /* Chapter 05 · 毕业 · 金粉暖阳 */
 .chapter[data-effect="graduation"] .chapter-label{color:#ffd980;text-shadow:0 0 16px rgba(255,217,128,.8)}
-.chapter[data-effect="graduation"] .chapter-title em{
+.chapter[data-effect="graduation"] .chapter-title{
   background:linear-gradient(135deg,#fff 0%,#ffd980 50%,#ffaa55 100%);
+  background-size:200% 100%;
   -webkit-background-clip:text;background-clip:text;color:transparent;
 }
 
 /* Chapter 06 · 日常银河 · 紫粉星空 */
 .chapter[data-effect="daily"] .chapter-label{color:#c8a8ff;text-shadow:0 0 14px rgba(200,168,255,.7)}
-.chapter[data-effect="daily"] .chapter-title em{
+.chapter[data-effect="daily"] .chapter-title{
   background:linear-gradient(135deg,#fff 0%,#c8a8ff 50%,#ff9bb5 100%);
+  background-size:200% 100%;
   -webkit-background-clip:text;background-clip:text;color:transparent;
 }
 
 /* Chapter 07 · 结婚 · 玫瑰红 */
 .chapter[data-effect="wedding"] .chapter-label{color:#ff9bb5;text-shadow:0 0 16px rgba(255,155,181,.8)}
-.chapter[data-effect="wedding"] .chapter-title em{
+.chapter[data-effect="wedding"] .chapter-title{
   background:linear-gradient(135deg,#fff 0%,#ff9bb5 50%,#ff5fa8 100%);
+  background-size:200% 100%;
   -webkit-background-clip:text;background-clip:text;color:transparent;
 }
 
 /* Chapter 11 · 宝宝 · 粉色柔软 */
 .chapter[data-effect="butterfly"] .chapter-label{color:#ffc0d0;text-shadow:0 0 14px rgba(255,192,208,.7)}
-.chapter[data-effect="butterfly"] .chapter-title em{
+.chapter[data-effect="butterfly"] .chapter-title{
   background:linear-gradient(135deg,#fff 0%,#ffc0d0 50%,#ff9bb5 100%);
+  background-size:200% 100%;
   -webkit-background-clip:text;background-clip:text;color:transparent;
 }
 
 /* Chapter 14 · 视频 · 胶片暖金 */
 .chapter[data-effect="video"] .chapter-label{color:#ffd980;text-shadow:0 0 14px rgba(255,217,128,.7)}
-.chapter[data-effect="video"] .chapter-title em{
+.chapter[data-effect="video"] .chapter-title{
   background:linear-gradient(135deg,#fff 0%,#ffd980 50%,#c8a8ff 100%);
+  background-size:200% 100%;
   -webkit-background-clip:text;background-clip:text;color:transparent;
 }
 
 /* Chapter 15 · AR · 紫罗兰 */
 .chapter[data-effect="ar"] .chapter-label{color:#c8a8ff;text-shadow:0 0 14px rgba(200,168,255,.7)}
-.chapter[data-effect="ar"] .chapter-title em{
+.chapter[data-effect="ar"] .chapter-title{
   background:linear-gradient(135deg,#fff 0%,#c8a8ff 50%,#88c5ff 100%);
+  background-size:200% 100%;
   -webkit-background-clip:text;background-clip:text;color:transparent;
 }
 
 /* Chapter 17 · 许愿 · 紫粉梦幻 */
 .chapter[data-effect="wish"] .chapter-label{color:#d8b8ff;text-shadow:0 0 14px rgba(216,184,255,.7)}
-.chapter[data-effect="wish"] .chapter-title em{
+.chapter[data-effect="wish"] .chapter-title{
   background:linear-gradient(135deg,#fff 0%,#d8b8ff 50%,#ff9bb5 100%);
+  background-size:200% 100%;
   -webkit-background-clip:text;background-clip:text;color:transparent;
 }
 
@@ -885,7 +895,7 @@ button,.photo-card,.video-card,.wish-card{cursor:pointer;-webkit-tap-highlight-c
 ============================================================ -->
 <section class="hero">
   <div class="hero-subtitle">2017.12 — 2026 — ∞</div>
-  <h1 class="hero-title">爱的<em>回忆</em></h1>
+  <h1 class="hero-title">爱的回忆</h1>
   <div class="hero-tag">A love story told in light &amp; code</div>
   <div class="hero-arrow">scroll</div>
 </section>
@@ -903,7 +913,7 @@ button,.photo-card,.video-card,.wish-card{cursor:pointer;-webkit-tap-highlight-c
   <canvas class="bg-canvas"></canvas>
   <div class="content-card">
     <div class="chapter-label">Chapter 01 · Before</div>
-    <h2 class="chapter-title">在那<em>之前</em></h2>
+    <h2 class="chapter-title">在那之前</h2>
     <div class="chapter-date">2017.12 — 2019.06</div>
     <p class="chapter-copy">
       那年十二月，初雪落在你身上，<br>
@@ -920,7 +930,7 @@ button,.photo-card,.video-card,.wish-card{cursor:pointer;-webkit-tap-highlight-c
   <canvas class="bg-canvas"></canvas>
   <div class="content-card">
     <div class="chapter-label">Chapter 02 · Emei</div>
-    <h2 class="chapter-title">峨眉<em>雪</em></h2>
+    <h2 class="chapter-title">峨眉雪</h2>
     <div class="chapter-date">2019 · 冬</div>
     <p class="chapter-copy">
       海拔三千米的金顶，<br>
@@ -936,7 +946,7 @@ button,.photo-card,.video-card,.wish-card{cursor:pointer;-webkit-tap-highlight-c
   <canvas class="bg-canvas"></canvas>
   <div class="content-card">
     <div class="chapter-label">Chapter 03 · Mountain City</div>
-    <h2 class="chapter-title">山城<em>之夜</em></h2>
+    <h2 class="chapter-title">山城之夜</h2>
     <div class="chapter-date">2018 — 2020</div>
     <p class="chapter-copy">
       洪崖洞的灯亮了，<br>
@@ -953,7 +963,7 @@ button,.photo-card,.video-card,.wish-card{cursor:pointer;-webkit-tap-highlight-c
   <canvas class="bg-canvas"></canvas>
   <div class="content-card">
     <div class="chapter-label">Chapter 04 · Beihai</div>
-    <h2 class="chapter-title">北海<em>海风</em></h2>
+    <h2 class="chapter-title">北海海风</h2>
     <div class="chapter-date">2019 · 夏</div>
     <p class="chapter-copy">
       海风把头发吹乱，<br>
@@ -970,7 +980,7 @@ button,.photo-card,.video-card,.wish-card{cursor:pointer;-webkit-tap-highlight-c
   <canvas class="bg-canvas"></canvas>
   <div class="content-card">
     <div class="chapter-label">Chapter 05 · Graduation</div>
-    <h2 class="chapter-title">那年<em>毕业</em></h2>
+    <h2 class="chapter-title">那年毕业</h2>
     <div class="chapter-date">2019 · 夏</div>
     <p class="chapter-copy">
       学士帽抛向天空的那一瞬，<br>
@@ -987,7 +997,7 @@ button,.photo-card,.video-card,.wish-card{cursor:pointer;-webkit-tap-highlight-c
   <canvas class="bg-canvas"></canvas>
   <div class="content-card">
     <div class="chapter-label">Chapter 06 · Everyday</div>
-    <h2 class="chapter-title">在一起的<em>每一天</em></h2>
+    <h2 class="chapter-title">在一起的每一天</h2>
     <div class="chapter-date">2019 — ∞</div>
     <p class="chapter-copy">
       不是远方的山川湖海，<br>
@@ -1006,7 +1016,7 @@ button,.photo-card,.video-card,.wish-card{cursor:pointer;-webkit-tap-highlight-c
   <canvas class="bg-canvas"></canvas>
   <div class="content-card">
     <div class="chapter-label">Chapter 07 · The Day</div>
-    <h2 class="chapter-title">我们<em>结婚</em>了</h2>
+    <h2 class="chapter-title">我们结婚了</h2>
     <div class="chapter-date">2024.02.18</div>
     <p class="chapter-copy">
       我愿意，从这一刻开始，<br>
@@ -1024,7 +1034,7 @@ button,.photo-card,.video-card,.wish-card{cursor:pointer;-webkit-tap-highlight-c
   <canvas class="bg-canvas"></canvas>
   <div class="content-card">
     <div class="chapter-label">Chapter 11 · Miracle</div>
-    <h2 class="chapter-title">柯柯<em>来了</em></h2>
+    <h2 class="chapter-title">柯柯来了</h2>
     <div class="chapter-date">2025.06</div>
     <p class="chapter-copy">
       从此，<br>
@@ -1044,7 +1054,7 @@ button,.photo-card,.video-card,.wish-card{cursor:pointer;-webkit-tap-highlight-c
   <canvas class="bg-canvas"></canvas>
   <div class="content-card">
     <div class="chapter-label">Chapter 14 · Moving Moments</div>
-    <h2 class="chapter-title">动起来的<em>瞬间</em></h2>
+    <h2 class="chapter-title">动起来的瞬间</h2>
     <div class="chapter-date">videos</div>
     <p class="chapter-copy">
       照片留住了画面，<br>
@@ -1061,7 +1071,7 @@ button,.photo-card,.video-card,.wish-card{cursor:pointer;-webkit-tap-highlight-c
   <canvas class="bg-canvas"></canvas>
   <div class="content-card">
     <div class="chapter-label">Chapter 15 · AR Memories</div>
-    <h2 class="chapter-title">把回忆<em>捧在</em>手里</h2>
+    <h2 class="chapter-title">把回忆捧在手里</h2>
     <div class="chapter-date">drag · scroll · tap</div>
     <p class="chapter-copy">
       像在博物馆的展柜前，<br>
@@ -1083,7 +1093,7 @@ button,.photo-card,.video-card,.wish-card{cursor:pointer;-webkit-tap-highlight-c
   <canvas class="bg-canvas"></canvas>
   <div class="content-card">
     <div class="chapter-label">Chapter 17 · Our Wish</div>
-    <h2 class="chapter-title">下<em>一个</em>十年</h2>
+    <h2 class="chapter-title">下一个十年</h2>
     <div class="chapter-date">2026 — ∞</div>
     <p class="chapter-copy">
       我们走过的路，<br>
@@ -1094,22 +1104,22 @@ button,.photo-card,.video-card,.wish-card{cursor:pointer;-webkit-tap-highlight-c
   </div>
   <div class="wish-grid">
     <div class="wish-card" data-wish="travel">
-      <span class="icon">✈️</span>
+      <div class="icon">✈️</div>
       <div class="title">一起看世界</div>
       <div class="desc">雪山、海、和你说的远方</div>
     </div>
     <div class="wish-card" data-wish="grow">
-      <span class="icon">🌳</span>
+      <div class="icon">🌳</div>
       <div class="title">一起慢慢变老</div>
       <div class="desc">从青丝到白发</div>
     </div>
     <div class="wish-card" data-wish="happy">
-      <span class="icon">💖</span>
+      <div class="icon">💖</div>
       <div class="title">永远幸福</div>
       <div class="desc">每一天都是好日子</div>
     </div>
     <div class="wish-card" data-wish="forever">
-      <span class="icon">♾️</span>
+      <div class="icon">♾️</div>
       <div class="title">永远在一起</div>
       <div class="desc">下辈子也是</div>
     </div>
