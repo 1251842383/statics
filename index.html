@@ -398,16 +398,6 @@ button{font-family:inherit;border:0;cursor:pointer;background:transparent;color:
   pointer-events:none;
 }
 @keyframes glowPulse{0%{opacity:.5;transform:translate(-50%,-50%) scale(.9)}100%{opacity:1;transform:translate(-50%,-50%) scale(1.1)}}
-.chapter-title .char{
-  display:inline-block;
-  opacity:0;
-  transform:translateY(40px) rotate(15deg);
-  animation:charIn .8s cubic-bezier(.2,.8,.2,1) forwards;
-}
-.chapter.in .chapter-title .char{
-  opacity:1;transform:translateY(0) rotate(0);
-}
-@keyframes charIn{to{opacity:1;transform:translateY(0) rotate(0)}}
 .chapter-title em{
   font-style:italic;font-weight:300;color:#c8a8ff;
   background:linear-gradient(135deg,#c8a8ff 0%,#fff 50%,#c19a6b 100%);
@@ -429,10 +419,6 @@ button{font-family:inherit;border:0;cursor:pointer;background:transparent;color:
 .chapter-date::before, .chapter-date::after{
   content:"·";margin:0 .8em;opacity:.5;
 }
-  color:rgba(255,255,255,.6);margin-bottom:3rem;text-align:center;
-  opacity:0;transform:translateY(20px);
-  transition:all 1s cubic-bezier(.2,.8,.2,1) .3s;
-}
 .chapter-copy{
   max-width:680px;margin:0 auto 3rem;text-align:center;
   font-size:clamp(1rem,1.6vw,1.2rem);line-height:2.4;
@@ -453,45 +439,24 @@ button{font-family:inherit;border:0;cursor:pointer;background:transparent;color:
 .chapter.in .chapter-copy,
 .chapter.in .chapter-photos{opacity:1;transform:translateY(0) scale(1)}
 
-/* 标题逐字延迟 */
-.chapter.in .chapter-title .char{
-  animation:charFallIn .8s cubic-bezier(.2,.8,.2,1) backwards;
+/* ============================================================
+   标题/文案整段入场动画（不拆字，无 span 标签）
+============================================================ */
+.chapter.in .chapter-title{
+  animation:titleFadeIn 1.4s cubic-bezier(.2,.8,.2,1) backwards;
 }
-.chapter-title em .char{animation-name:charGlowIn}
-@keyframes charFallIn{
-  0%{opacity:0;transform:translateY(60px) rotate(20deg) scale(.5)}
-  60%{opacity:1;transform:translateY(-8px) rotate(-3deg) scale(1.05)}
-  100%{opacity:1;transform:translateY(0) rotate(0) scale(1)}
-}
-@keyframes charGlowIn{
-  0%{opacity:0;transform:translateY(60px) scale(.5);filter:blur(20px) brightness(2)}
-  100%{opacity:1;transform:translateY(0) scale(1);filter:blur(0) brightness(1)}
+@keyframes titleFadeIn{
+  0%{opacity:0;transform:translateY(40px) scale(.92);filter:blur(8px)}
+  100%{opacity:1;transform:translateY(0) scale(1);filter:blur(0)}
 }
 
-/* 标题字符错开延迟（按 nth-child） */
-.chapter.in .chapter-title .char:nth-child(1){animation-delay:.1s}
-.chapter.in .chapter-title .char:nth-child(2){animation-delay:.18s}
-.chapter.in .chapter-title .char:nth-child(3){animation-delay:.26s}
-.chapter.in .chapter-title .char:nth-child(4){animation-delay:.34s}
-.chapter.in .chapter-title .char:nth-child(5){animation-delay:.42s}
-.chapter.in .chapter-title .char:nth-child(6){animation-delay:.5s}
-.chapter.in .chapter-title .char:nth-child(7){animation-delay:.58s}
-.chapter.in .chapter-title .char:nth-child(8){animation-delay:.66s}
-.chapter.in .chapter-title .char:nth-child(9){animation-delay:.74s}
-.chapter.in .chapter-title .char:nth-child(10){animation-delay:.82s}
-.chapter.in .chapter-title .char:nth-child(11){animation-delay:.9s}
-.chapter.in .chapter-title .char:nth-child(12){animation-delay:.98s}
-
-/* 文案字符飘入 */
-.chapter.in .copy-char{
-  animation:copyCharIn .8s cubic-bezier(.2,.8,.2,1) backwards;
+.chapter.in .chapter-copy{
+  animation:copyFadeIn 1.6s cubic-bezier(.2,.8,.2,1) .3s backwards;
 }
-@keyframes copyCharIn{
-  0%{opacity:0;transform:translateY(20px);filter:blur(8px)}
-  100%{opacity:.85;transform:translateY(0);filter:blur(0)}
+@keyframes copyFadeIn{
+  0%{opacity:0;transform:translateY(30px);filter:blur(6px)}
+  100%{opacity:1;transform:translateY(0);filter:blur(0)}
 }
-.copy-line{display:block;margin-bottom:.4em}
-.copy-char{display:inline-block;opacity:.85;will-change:transform}
 
 /* ============================================================
    各章专属文案风格（与背景特效呼应）
@@ -502,26 +467,12 @@ button{font-family:inherit;border:0;cursor:pointer;background:transparent;color:
   background:linear-gradient(135deg,#fff 0%,#d8e8ff 50%,#a8c8ff 100%);
   -webkit-background-clip:text;background-clip:text;color:transparent;
 }
-.chapter[data-effect="meteor"] .chapter.in .copy-char{
-  animation-name:copyCharTwinkle;
-}
-@keyframes copyCharTwinkle{
-  0%{opacity:0;transform:translateY(20px);filter:blur(8px) brightness(1.5)}
-  100%{opacity:.9;transform:translateY(0);filter:blur(0) brightness(1)}
-}
 
 /* Chapter 02 · 雪山 · 冰蓝雪光 */
 .chapter[data-effect="snow"] .chapter-label{color:#a8d8ff;text-shadow:0 0 14px rgba(168,216,255,.7)}
 .chapter[data-effect="snow"] .chapter-title em{
   background:linear-gradient(135deg,#fff 0%,#a8d8ff 50%,#88c5ff 100%);
   -webkit-background-clip:text;background-clip:text;color:transparent;
-}
-.chapter[data-effect="snow"] .chapter.in .copy-char{
-  animation-name:copyCharFrost;
-}
-@keyframes copyCharFrost{
-  0%{opacity:0;transform:translateY(20px);filter:blur(10px) hue-rotate(-20deg)}
-  100%{opacity:.88;transform:translateY(0);filter:blur(0) hue-rotate(0)}
 }
 
 /* Chapter 03 · 山城霓虹 · 多彩霓虹光晕 */
@@ -537,27 +488,12 @@ button{font-family:inherit;border:0;cursor:pointer;background:transparent;color:
   0%,100%{filter:brightness(1)}
   50%{filter:brightness(1.4)}
 }
-.chapter[data-effect="neon"] .chapter.in .copy-char{
-  animation-name:copyCharNeon;
-}
-@keyframes copyCharNeon{
-  0%{opacity:0;transform:translateY(20px) skewX(-5deg);filter:blur(8px) hue-rotate(60deg)}
-  100%{opacity:.9;transform:translateY(0) skewX(0);filter:blur(0) hue-rotate(0)}
-}
 
 /* Chapter 04 · 北海海浪 · 阳光暖金 */
 .chapter[data-effect="wave"] .chapter-label{color:#ffd166;text-shadow:0 0 14px rgba(255,209,102,.7)}
 .chapter[data-effect="wave"] .chapter-title em{
   background:linear-gradient(135deg,#fff 0%,#ffd166 50%,#ff9b6b 100%);
   -webkit-background-clip:text;background-clip:text;color:transparent;
-}
-.chapter[data-effect="wave"] .chapter.in .copy-char{
-  animation-name:copyCharWave;
-}
-@keyframes copyCharWave{
-  0%{opacity:0;transform:translateY(20px) translateX(-10px)}
-  50%{opacity:.6;transform:translateY(5px) translateX(3px)}
-  100%{opacity:.9;transform:translateY(0) translateX(0)}
 }
 
 /* Chapter 05 · 毕业 · 金粉暖阳 */
@@ -566,26 +502,12 @@ button{font-family:inherit;border:0;cursor:pointer;background:transparent;color:
   background:linear-gradient(135deg,#fff 0%,#ffd980 50%,#ffaa55 100%);
   -webkit-background-clip:text;background-clip:text;color:transparent;
 }
-.chapter[data-effect="graduation"] .chapter.in .copy-char{
-  animation-name:copyCharGlow;
-}
-@keyframes copyCharGlow{
-  0%{opacity:0;transform:translateY(20px);filter:blur(8px) brightness(1.8)}
-  100%{opacity:.9;transform:translateY(0);filter:blur(0) brightness(1)}
-}
 
 /* Chapter 06 · 日常银河 · 紫粉星空 */
 .chapter[data-effect="daily"] .chapter-label{color:#c8a8ff;text-shadow:0 0 14px rgba(200,168,255,.7)}
 .chapter[data-effect="daily"] .chapter-title em{
   background:linear-gradient(135deg,#fff 0%,#c8a8ff 50%,#ff9bb5 100%);
   -webkit-background-clip:text;background-clip:text;color:transparent;
-}
-.chapter[data-effect="daily"] .chapter.in .copy-char{
-  animation-name:copyCharFloat;
-}
-@keyframes copyCharFloat{
-  0%{opacity:0;transform:translateY(30px);filter:blur(10px)}
-  100%{opacity:.9;transform:translateY(0);filter:blur(0)}
 }
 
 /* Chapter 07 · 结婚 · 玫瑰红 */
@@ -594,27 +516,12 @@ button{font-family:inherit;border:0;cursor:pointer;background:transparent;color:
   background:linear-gradient(135deg,#fff 0%,#ff9bb5 50%,#ff5fa8 100%);
   -webkit-background-clip:text;background-clip:text;color:transparent;
 }
-.chapter[data-effect="wedding"] .chapter.in .copy-char{
-  animation-name:copyCharRose;
-}
-@keyframes copyCharRose{
-  0%{opacity:0;transform:translateY(20px) scale(.8);filter:blur(8px)}
-  100%{opacity:.9;transform:translateY(0) scale(1);filter:blur(0)}
-}
 
 /* Chapter 11 · 宝宝 · 粉色柔软 */
 .chapter[data-effect="butterfly"] .chapter-label{color:#ffc0d0;text-shadow:0 0 14px rgba(255,192,208,.7)}
 .chapter[data-effect="butterfly"] .chapter-title em{
   background:linear-gradient(135deg,#fff 0%,#ffc0d0 50%,#ff9bb5 100%);
   -webkit-background-clip:text;background-clip:text;color:transparent;
-}
-.chapter[data-effect="butterfly"] .chapter.in .copy-char{
-  animation-name:copyCharButterfly;
-}
-@keyframes copyCharButterfly{
-  0%{opacity:0;transform:translateY(20px) rotate(-3deg)}
-  60%{opacity:.7;transform:translateY(-3px) rotate(2deg)}
-  100%{opacity:.9;transform:translateY(0) rotate(0)}
 }
 
 /* Chapter 14 · 视频 · 胶片暖金 */
@@ -639,88 +546,8 @@ button{font-family:inherit;border:0;cursor:pointer;background:transparent;color:
 }
 
 /* ============================================================
-   各章专属标题入场动画
+   各章专属标题入场动画 (整段动画，非逐字)
 ============================================================ */
-/* 流星 · 从上方斜向落下 */
-.chapter[data-effect="meteor"].in .chapter-title .char{
-  animation-name:charMeteorIn;
-}
-@keyframes charMeteorIn{
-  0%{opacity:0;transform:translateY(-60px) translateX(40px) rotate(25deg);filter:blur(8px) brightness(1.8)}
-  60%{opacity:1;transform:translateY(8px) translateX(-4px) rotate(-3deg);filter:blur(0) brightness(1.4)}
-  100%{opacity:1;transform:translateY(0) translateX(0) rotate(0);filter:blur(0) brightness(1)}
-}
-
-/* 雪花 · 旋转飘落 */
-.chapter[data-effect="snow"].in .chapter-title .char{
-  animation-name:charSnowIn;
-}
-@keyframes charSnowIn{
-  0%{opacity:0;transform:translateY(-40px) rotate(180deg) scale(.5)}
-  70%{opacity:.9;transform:translateY(8px) rotate(20deg) scale(1.05)}
-  100%{opacity:1;transform:translateY(0) rotate(0) scale(1)}
-}
-
-/* 霓虹 · 闪烁渐入 */
-.chapter[data-effect="neon"].in .chapter-title .char{
-  animation-name:charNeonIn;
-}
-@keyframes charNeonIn{
-  0%{opacity:0;transform:scale(.3);filter:blur(10px) brightness(2)}
-  30%{opacity:.4;transform:scale(.9);filter:blur(4px) brightness(1.5)}
-  50%{opacity:.8;transform:scale(1.05);filter:blur(0) brightness(1.2)}
-  100%{opacity:1;transform:scale(1);filter:blur(0) brightness(1)}
-}
-
-/* 海浪 · 左右摇摆 */
-.chapter[data-effect="wave"].in .chapter-title .char{
-  animation-name:charWaveIn;
-}
-@keyframes charWaveIn{
-  0%{opacity:0;transform:translateY(20px) translateX(-15px) skewX(-8deg)}
-  50%{opacity:.7;transform:translateY(-5px) translateX(5px) skewX(3deg)}
-  100%{opacity:1;transform:translateY(0) translateX(0) skewX(0)}
-}
-
-/* 毕业 · 金光爆发 */
-.chapter[data-effect="graduation"].in .chapter-title .char{
-  animation-name:charGradIn;
-}
-@keyframes charGradIn{
-  0%{opacity:0;transform:scale(.3) rotate(-30deg);filter:blur(12px) brightness(2.5)}
-  50%{opacity:.9;transform:scale(1.1) rotate(5deg);filter:blur(0) brightness(1.5)}
-  100%{opacity:1;transform:scale(1) rotate(0);filter:blur(0) brightness(1)}
-}
-
-/* 日常银河 · 缓慢浮起 + 星光辉光 */
-.chapter[data-effect="daily"].in .chapter-title .char{
-  animation-name:charDailyIn;
-}
-@keyframes charDailyIn{
-  0%{opacity:0;transform:translateY(40px) scale(.6);filter:blur(15px) brightness(2)}
-  100%{opacity:1;transform:translateY(0) scale(1);filter:blur(0) brightness(1)}
-}
-
-/* 结婚 · 玫瑰花瓣飘入 */
-.chapter[data-effect="wedding"].in .chapter-title .char{
-  animation-name:charRoseIn;
-}
-@keyframes charRoseIn{
-  0%{opacity:0;transform:translateY(50px) scale(.4) rotate(-45deg);filter:blur(8px)}
-  60%{opacity:.9;transform:translateY(-6px) scale(1.1) rotate(5deg)}
-  100%{opacity:1;transform:translateY(0) scale(1) rotate(0)}
-}
-
-/* 蝴蝶 · 振翅飞入 */
-.chapter[data-effect="butterfly"].in .chapter-title .char{
-  animation-name:charButterflyIn;
-}
-@keyframes charButterflyIn{
-  0%{opacity:0;transform:translateX(-30px) translateY(15px) rotate(-10deg) scale(.8)}
-  40%{opacity:.7;transform:translateX(8px) translateY(-4px) rotate(3deg) scale(1.05)}
-  60%{opacity:.9;transform:translateX(-4px) translateY(2px) rotate(-1deg)}
-  100%{opacity:1;transform:translateX(0) translateY(0) rotate(0) scale(1)}
-}
 
 /* 像素分解照片入场 */
 .photo-card{
@@ -1577,40 +1404,15 @@ function navLightbox(d) {
 window.closeLightbox = closeLightbox;
 window.navLightbox = navLightbox;
 
-// ===== 标题逐字动画 =====
+// ===== 标题入场（不拆字，整段动画） =====
 function splitTitleChars(){
-  $$('.chapter-title').forEach(title => {
-    if (title.dataset.split) return;
-    title.dataset.split = '1';
-    const html = title.innerHTML;
-    // 保留 <em>...</em> 标签结构，但把内部文字拆字
-    title.innerHTML = html.replace(/<em>([\s\S]*?)<\/em>/g, (m, txt) => {
-      const chars = [...txt].map(c => `<span class="char">${c}</span>`).join('');
-      return `<em>${chars}</em>`;
-    }).replace(/([^<]+)(?=<|$)/g, (m, txt) => {
-      const chars = [...txt].map(c => `<span class="char">${c}</span>`).join('');
-      return chars;
-    });
-  });
+  // 不再拆字 — 整段作为动画单位，避免产生 span 标签
+  // 仅为已存在的 .char span 设置首次入场动画
 }
 
-// ===== 文案特效 =====
+// ===== 文案入场（不拆字，逐行作为动画单位） =====
 function animateCopyText(){
-  $$('.chapter-copy').forEach(copy => {
-    if (copy.dataset.animated) return;
-    copy.dataset.animated = '1';
-    const lines = copy.innerHTML.split(/<br\s*\/?>/i);
-    copy.innerHTML = lines.map((line, li) => {
-      const chars = [...line].map((c, ci) => {
-        const span = document.createElement('span');
-        span.className = 'copy-char';
-        span.textContent = c;
-        span.style.animationDelay = (li * 200 + ci * 30) + 'ms';
-        return span.outerHTML;
-      }).join('');
-      return `<span class="copy-line">${chars}</span>`;
-    }).join('<br>');
-  });
+  // 不再拆字 — 整段作为动画单位
 }
 
 splitTitleChars();
