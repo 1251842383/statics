@@ -221,6 +221,15 @@ body::before{
   background:linear-gradient(transparent,rgba(0,0,0,.85));
   color:#fff;font-size:.9rem;
 }
+.video-card .video-placeholder{
+  position:absolute;inset:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:.5rem;
+  background:radial-gradient(ellipse at center, rgba(193,154,107,.18) 0%, transparent 70%), rgba(0,0,0,.4);
+  color:rgba(255,255,255,.6);font-family:"Cormorant Garamond",serif;
+  font-style:italic;letter-spacing:.15em;
+  transition:opacity .4s;
+}
+.video-card video[src] + .video-placeholder{opacity:0;pointer-events:none}
 .video-empty{
   text-align:center;padding:3rem 1rem;color:rgba(255,255,255,.5);
   font-style:italic;
@@ -1377,9 +1386,22 @@ async function loadAllPhotos() {
   // 优先用 manifest，否则用 p1.jpg 约定
   function getPhotos(folder) {
     if (PHOTO_MANIFEST && PHOTO_MANIFEST[folder]) {
-      return Promise.resolve(PHOTO_MANIFEST[folder].map(f => `${folder}/${f}`));
+      const entry = PHOTO_MANIFEST[folder];
+      // 新格式 {original, thumb}
+      if (entry.original && entry.thumb) {
+        return Promise.resolve({
+          original: entry.original.map(f => `${folder}/${f}`),
+          thumb: entry.thumb.map(f => `${folder}/${f}`)
+        });
+      }
+      // 旧格式（纯数组）— 原图即缩略图
+      const arr = entry.map(f => `${folder}/${f}`);
+      return Promise.resolve({ original: arr, thumb: arr });
     }
-    return loadChapterPhotos(folder, 20);
+    return loadChapterPhotos(folder, 20).then(arr => {
+      const mapped = arr.map(f => `${folder}/${f.split('/').pop()}`);
+      return { original: mapped, thumb: mapped };
+    });
   }
 
   ALL_PHOTOS[1] = await getPhotos('chapter-01-before');
@@ -1390,17 +1412,23 @@ async function loadAllPhotos() {
   ALL_PHOTOS[6] = await getPhotos('chapter-06-daily');
   ALL_PHOTOS[7] = await getPhotos('chapter-07-wedding');
   ALL_PHOTOS[11] = await getPhotos('chapter-11-baby');
-  // Chapter 17 许愿 — 纯粒子动效，不需要照片
 
-  // AR 主题
+  // AR 主题 — 也支持双路径
   if (PHOTO_MANIFEST && PHOTO_MANIFEST['chapter-15-ar']) {
-    for (const [theme, files] of Object.entries(PHOTO_MANIFEST['chapter-15-ar'])) {
-      if (files && files.length) {
-        AR_THEMES[theme.replace(/^theme-\d+-/, '')] = files.map(f => `chapter-15-ar/${theme}/${f}`);
+    for (const [theme, entry] of Object.entries(PHOTO_MANIFEST['chapter-15-ar'])) {
+      const name = theme.replace(/^theme-\d+-/, '');
+      if (entry && entry.original && entry.thumb) {
+        AR_THEMES[name] = {
+          original: entry.original.map(f => `chapter-15-ar/${theme}/${f}`),
+          thumb: entry.thumb.map(f => `chapter-15-ar/${theme}/${f}`)
+        };
+      } else if (Array.isArray(entry)) {
+        const arr = entry.map(f => `chapter-15-ar/${theme}/${f}`);
+        AR_THEMES[name] = { original: arr, thumb: arr };
       }
     }
   }
-  console.log('Photos loaded:', Object.fromEntries(Object.entries(ALL_PHOTOS).map(([k,v]) => [k, v.length])), 'AR themes:', Object.keys(AR_THEMES));
+  console.log('Photos loaded:', Object.fromEntries(Object.entries(ALL_PHOTOS).map(([k,v]) => [k, v.thumb?.length || v.length])), 'AR themes:', Object.keys(AR_THEMES));
 }
 
 // ===== 缩略图生成 =====
@@ -1496,24 +1524,55 @@ function makePhotoSprite(src, size = 200) {
   });
 }
 
-// ===== Lightbox（点击看原图） =====
+// ===== Lightbox（点击看原图，按需加载高清原图） =====
 let lbList = [];
 let lbIdx = 0;
+let lbThumbList = [];
 const lightbox = $('#lightbox');
 const lightboxImg = $('#lightboxImg');
 
-function openLightbox(list, idx) {
-  lbList = list;
-  lbIdx = idx;
-  if (!list.length) return;
-  lightboxImg.src = list[idx];
+// 接收 (originalList, thumbList, idx) 或 (combinedList, idx) 兼容旧调用
+function openLightbox(origList, thumbList, idx) {
+  if (Array.isArray(origList) && Array.isArray(thumbList)) {
+    lbList = origList;
+    lbThumbList = thumbList;
+    lbIdx = idx || 0;
+  } else {
+    // 旧调用：直接传数组（不区分原图/缩略图）
+    lbList = origList;
+    lbThumbList = origList; // 用同一份
+    lbIdx = thumbList || 0;
+  }
+  if (!lbList.length) return;
+  showLightboxImage();
   lightbox.classList.add('on');
 }
+
+function showLightboxImage() {
+  const orig = lbList[lbIdx];
+  const thumb = lbThumbList[lbIdx];
+  // 先显示缩略图，立刻有反馈
+  if (thumb) {
+    lightboxImg.src = thumb;
+  } else {
+    lightboxImg.src = orig;
+  }
+  // 异步加载原图替换
+  if (orig && orig !== thumb) {
+    const loader = new Image();
+    loader.onload = () => {
+      // 用户还停在同一张才替换
+      if (lbList[lbIdx] === orig) lightboxImg.src = orig;
+    };
+    loader.src = orig;
+  }
+}
+
 function closeLightbox() { lightbox.classList.remove('on'); }
 function navLightbox(d) {
   if (!lbList.length) return;
   lbIdx = (lbIdx + d + lbList.length) % lbList.length;
-  lightboxImg.src = lbList[lbIdx];
+  showLightboxImage();
 }
 window.closeLightbox = closeLightbox;
 window.navLightbox = navLightbox;
@@ -1825,7 +1884,8 @@ async function buildMeteor(chapterEl){
   scene.add(nebula2);
 
   // 3. 流星 = 照片 sprite（每颗流星头部是照片 + 光晕拖尾）
-  const photos = ALL_PHOTOS[1] || [];
+  const photos = (ALL_PHOTOS[1] && ALL_PHOTOS[1].thumb) || [];
+  const photosOriginal = (ALL_PHOTOS[1] && ALL_PHOTOS[1].original) || photos;
   const photoSprites = [];
   for (let i = 0; i < photos.length; i++) {
     const sp = await makePhotoSprite(photos[i], 256);
@@ -1924,7 +1984,7 @@ async function buildMeteor(chapterEl){
       const hits = raycaster.intersectObjects(heads);
       if (hits.length) {
         const idx = heads.indexOf(hits[0].object);
-        if (idx >= 0 && photoLookup[idx] >= 0) openLightbox(photos, photoLookup[idx]);
+        if (idx >= 0 && photoLookup[idx] >= 0) openLightbox(photosOriginal, photos, photoLookup[idx]);
       }
     });
   }
@@ -1981,7 +2041,8 @@ async function buildSnow(chapterEl){
   }
 
   // 3. 雪花 = 照片（每片雪花都是照片 sprite，旋转下落 + 边缘光晕）
-  const photos = ALL_PHOTOS[2] || [];
+  const photos = (ALL_PHOTOS[2] && ALL_PHOTOS[2].thumb) || [];
+  const photosOriginal = (ALL_PHOTOS[2] && ALL_PHOTOS[2].original) || photos;
   const photoPool = [];
   for (let i = 0; i < photos.length; i++) {
     const sp = await makePhotoSprite(photos[i], 256);
@@ -2073,7 +2134,7 @@ async function buildSnow(chapterEl){
       const hits = raycaster.intersectObjects(heads);
       if (hits.length) {
         const idx = heads.indexOf(hits[0].object);
-        if (idx >= 0 && photoLookup[idx] >= 0) openLightbox(photos, photoLookup[idx]);
+        if (idx >= 0 && photoLookup[idx] >= 0) openLightbox(photosOriginal, photos, photoLookup[idx]);
       }
     });
   }
@@ -2334,7 +2395,8 @@ async function buildWave(chapterEl){
   scene.add(dir);
 
   // 7. 海面浮着的照片（每张都是照片，伴随水波上下浮动 + 边缘水光）
-  const photos = ALL_PHOTOS[4] || [];
+  const photos = (ALL_PHOTOS[4] && ALL_PHOTOS[4].thumb) || [];
+  const photosOriginal = (ALL_PHOTOS[4] && ALL_PHOTOS[4].original) || photos;
   const photoPool = [];
   for (let i = 0; i < photos.length; i++) {
     const sp = await makePhotoSprite(photos[i], 256);
@@ -2413,7 +2475,7 @@ async function buildWave(chapterEl){
       const hits = raycaster.intersectObjects(photoSprites);
       if (hits.length) {
         const idx = photoSprites.indexOf(hits[0].object);
-        if (idx >= 0 && photoLookup[idx] >= 0) openLightbox(photos, photoLookup[idx]);
+        if (idx >= 0 && photoLookup[idx] >= 0) openLightbox(photosOriginal, photos, photoLookup[idx]);
       }
     });
   }
@@ -2493,7 +2555,8 @@ async function buildGraduation(chapterEl){
   scene.add(ribbon);
 
   // 4. 金粉照片 = 照片 sprite + 金色光晕（从中心爆炸向外）
-  const photos = ALL_PHOTOS[5] || [];
+  const photos = (ALL_PHOTOS[5] && ALL_PHOTOS[5].thumb) || [];
+  const photosOriginal = (ALL_PHOTOS[5] && ALL_PHOTOS[5].original) || photos;
   const photoPool = [];
   for (let i = 0; i < photos.length; i++) {
     const sp = await makePhotoSprite(photos[i], 256);
@@ -2571,7 +2634,7 @@ async function buildGraduation(chapterEl){
       const hits = raycaster.intersectObjects(heads);
       if (hits.length) {
         const idx = heads.indexOf(hits[0].object);
-        if (idx >= 0 && photoLookup[idx] >= 0) openLightbox(photos, photoLookup[idx]);
+        if (idx >= 0 && photoLookup[idx] >= 0) openLightbox(photosOriginal, photos, photoLookup[idx]);
       }
     });
   }
@@ -2661,7 +2724,8 @@ async function buildDaily(chapterEl){
   scene.add(heartPoints);
 
   // 元素4: 照片球（多层球壳，所有照片都用上）
-  const photos = ALL_PHOTOS[6] || [];
+  const photos = (ALL_PHOTOS[6] && ALL_PHOTOS[6].thumb) || [];
+  const photosOriginal = (ALL_PHOTOS[6] && ALL_PHOTOS[6].original) || photos;
   const photoSprites = [];
   const photoLookup = [];
   if (photos.length) {
@@ -2788,7 +2852,7 @@ async function buildDaily(chapterEl){
     const hits = raycaster.intersectObjects(photoSprites);
     if (hits.length) {
       const i = photoSprites.indexOf(hits[0].object);
-      if (i >= 0) openLightbox(photos, photoLookup[i]);
+      if (i >= 0) openLightbox(photosOriginal, photos, photoLookup[i]);
     }
   });
 
@@ -2980,7 +3044,8 @@ async function buildWedding(chapterEl){
   scene.add(ribbon);
 
   // 元素6: 照片双环（每张照片 = 玫瑰色光晕 + sprite）
-  const photos = ALL_PHOTOS[7] || [];
+  const photos = (ALL_PHOTOS[7] && ALL_PHOTOS[7].thumb) || [];
+  const photosOriginal = (ALL_PHOTOS[7] && ALL_PHOTOS[7].original) || photos;
   const photoPool = [];
   for (let i = 0; i < photos.length; i++) {
     const sp = await makePhotoSprite(photos[i], 256);
@@ -3076,7 +3141,7 @@ async function buildWedding(chapterEl){
       const hits = raycaster.intersectObjects(heads);
       if (hits.length) {
         const idx = heads.indexOf(hits[0].object);
-        if (idx >= 0 && photoLookup[idx] >= 0) openLightbox(photos, photoLookup[idx]);
+        if (idx >= 0 && photoLookup[idx] >= 0) openLightbox(photosOriginal, photos, photoLookup[idx]);
       }
     });
   }
@@ -3104,7 +3169,8 @@ async function buildButterfly(chapterEl){
   scene.add(new T.PointLight(0xffc0d0, 1.5, 50).translateY(10).translateZ(10));
 
   // 元素1: 照片蝴蝶（翅膀是照片 sprite，扇动飞行）
-  const photos = ALL_PHOTOS[11] || [];
+  const photos = (ALL_PHOTOS[11] && ALL_PHOTOS[11].thumb) || [];
+  const photosOriginal = (ALL_PHOTOS[11] && ALL_PHOTOS[11].original) || photos;
   const photoPool = [];
   for (let i = 0; i < photos.length; i++) {
     const sp = await makePhotoSprite(photos[i], 256);
@@ -3301,14 +3367,14 @@ async function buildButterfly(chapterEl){
         const wing = hits[0].object;
         const idx = wings.indexOf(wing);
         const bIdx = Math.floor(idx / 2);
-        if (bIdx >= 0 && butterflyPhotos[bIdx] >= 0) openLightbox(photos, butterflyPhotos[bIdx]);
+        if (bIdx >= 0 && butterflyPhotos[bIdx] >= 0) openLightbox(photosOriginal, photos, butterflyPhotos[bIdx]);
         return;
       }
       // 再检测弧阵
       hits = raycaster.intersectObjects(photoArcSprites);
       if (hits.length) {
         const idx = photoArcSprites.indexOf(hits[0].object);
-        if (idx >= 0 && arcLookup[idx] >= 0) openLightbox(photos, arcLookup[idx]);
+        if (idx >= 0 && arcLookup[idx] >= 0) openLightbox(photosOriginal, photos, arcLookup[idx]);
       }
     });
   }
@@ -3321,7 +3387,7 @@ async function buildButterfly(chapterEl){
 }
 
 /* ============================================================
-   Chapter 14 · 视频（从 manifest 读取）
+   Chapter 14 · 视频墙（hover 1秒 或 点击 才加载播放）
 ============================================================ */
 function buildVideo(chapterEl){
   if (chapterEl.dataset.built) return;
@@ -3335,22 +3401,58 @@ function buildVideo(chapterEl){
     videos.forEach((name, i) => {
       const card = document.createElement('div');
       card.className = 'video-card';
+      const url = `chapter-14-video/${name}`;
+
       const v = document.createElement('video');
-      v.src = `chapter-14-video/${name}`;
       v.muted = true;
       v.loop = true;
       v.playsInline = true;
-      v.preload = 'metadata';
+      v.preload = 'none';           // 默认完全不加载
+      v.poster = '';                // 不显示破图
       card.appendChild(v);
+
+      // 占位图标（未加载时显示）
+      const placeholder = document.createElement('div');
+      placeholder.className = 'video-placeholder';
+      placeholder.innerHTML = `<div class="play-icon">▶</div><div class="loading-text">记忆 #${i + 1}</div>`;
+      card.appendChild(placeholder);
+
       const cap = document.createElement('div');
       cap.className = 'vcap';
       cap.textContent = `记忆 #${i + 1}`;
       card.appendChild(cap);
-      card.addEventListener('mouseenter', () => v.play().catch(() => {}));
-      card.addEventListener('mouseleave', () => v.pause());
-      card.addEventListener('click', () => {
+
+      let loaded = false, hoverTimer = null, playing = false;
+      function ensureLoaded() {
+        if (loaded) return Promise.resolve();
+        loaded = true;
+        v.src = url;
+        v.load();
+        return new Promise(r => {
+          v.onloadeddata = () => r();
+          v.oncanplay = () => r();
+        });
+      }
+
+      card.addEventListener('mouseenter', () => {
+        hoverTimer = setTimeout(async () => {
+          await ensureLoaded();
+          playing = true;
+          v.play().catch(() => {});
+        }, 1000);
+      });
+      card.addEventListener('mouseleave', () => {
+        clearTimeout(hoverTimer);
+        if (playing && !v.muted) return; // 用户点击开启了声音，不暂停
+        v.pause();
+        playing = false;
+      });
+      card.addEventListener('click', async () => {
+        clearTimeout(hoverTimer);
+        await ensureLoaded();
         v.muted = false;
-        if (v.paused) v.play(); else v.pause();
+        if (v.paused) { v.play(); playing = true; }
+        else { v.pause(); playing = false; }
       });
       grid.appendChild(card);
     });
@@ -3379,7 +3481,7 @@ function buildVideo(chapterEl){
 }
 
 /* ============================================================
-   Chapter 15 · AR 3D 照片墙
+   Chapter 15 · AR 3D 照片墙（陀螺仪视角 + 多层球壳）
 ============================================================ */
 async function buildAR(chapterEl){
   if (chapterEl.dataset.built) return;
@@ -3390,9 +3492,7 @@ async function buildAR(chapterEl){
   camera.position.set(0, 0, 35);
 
   scene.add(new T.AmbientLight(0xffffff, 0.6));
-  const pl = new T.PointLight(0xc8a8ff, 1.5, 100);
-  pl.position.set(0, 10, 20);
-  scene.add(pl);
+  scene.add(new T.PointLight(0xc8a8ff, 1.5, 100).translateY(10).translateZ(20));
 
   const themeNames = Object.keys(AR_THEMES);
   if (!themeNames.length) {
@@ -3418,28 +3518,60 @@ async function buildAR(chapterEl){
     themesDiv.appendChild(b);
   });
 
-  // 当前主题的照片
+  // 当前主题的照片（双层球壳分布 + 中间摆台）
   const group = new T.Group();
   scene.add(group);
   let photoSprites = [];
+  let photoLookup = [];
 
   async function showTheme(idx){
-    // 清空
     while (group.children.length) group.remove(group.children[0]);
     photoSprites = [];
-    const photos = AR_THEMES[themeNames[idx]] || [];
-    const N = Math.min(photos.length, 6);
-    for (let i = 0; i < N; i++) {
-      const sp = await makePhotoSprite(photos[i], 256);
-      if (sp) {
-        const angle = (i / N) * Math.PI * 2;
-        const r = 12;
-        sp.position.set(Math.cos(angle) * r, Math.sin(angle) * r, 0);
-        sp.scale.set(2.5, 2.5, 1);
-        sp.userData = { baseScale: 2.5, phase: rand(0, Math.PI * 2) };
+    photoLookup = [];
+    const photosEntry = AR_THEMES[themeNames[idx]];
+    const photos = (photosEntry && photosEntry.thumb) || [];
+    const photosOriginal = (photosEntry && photosEntry.original) || photos;
+    window.__arPhotosOriginal = photosOriginal;
+    window.__arPhotosThumb = photos;
+    const N = photos.length;
+    if (N === 0) return;
+    // 内层小球壳 + 外层大球壳 + 中间摆台
+    const layers = [
+      { radius: 10, scale: 1.8, ring: true, count: Math.min(N, 6) },
+      { radius: 18, scale: 2.4, ring: true, count: Math.min(N, 8) },
+      { radius: 26, scale: 2.0, ring: false, count: Math.min(N, 10) }
+    ];
+    let used = 0;
+    for (let li = 0; li < layers.length; li++) {
+      const L = layers[li];
+      const cnt = Math.min(L.count, N - used);
+      for (let i = 0; i < cnt; i++) {
+        const idx2 = (used + i) % N;
+        const sp = await makePhotoSprite(photos[idx2], 256);
+        if (!sp) continue;
+        let angle, y, r;
+        if (L.ring) {
+          angle = (i / cnt) * Math.PI * 2 + li * 0.5;
+          y = Math.sin(angle) * L.radius * 0.4;
+          r = Math.cos(angle) * L.radius;
+          sp.position.set(Math.sin(angle) * r, y, Math.cos(angle) * r - L.radius);
+        } else {
+          // 球面均匀分布
+          const phi = Math.acos(1 - 2 * (i + 0.5) / cnt);
+          const theta = Math.PI * (1 + Math.sqrt(5)) * (i + 0.5);
+          sp.position.set(
+            L.radius * Math.sin(phi) * Math.cos(theta),
+            L.radius * Math.cos(phi),
+            L.radius * Math.sin(phi) * Math.sin(theta)
+          );
+        }
+        sp.scale.set(L.scale, L.scale, 1);
+        sp.userData = { baseScale: L.scale, phase: rand(0, Math.PI * 2) };
         group.add(sp);
         photoSprites.push(sp);
+        photoLookup.push(idx2);
       }
+      used += cnt;
     }
   }
   await showTheme(0);
@@ -3472,6 +3604,38 @@ async function buildAR(chapterEl){
     camera.position.z = Math.max(15, Math.min(60, camera.position.z + e.deltaY * 0.02));
   }, { passive: false });
 
+  // 陀螺仪（移动设备）— 转动手机视角看不同效果
+  let gyroActive = false;
+  function handleOrientation(e) {
+    if (e.beta === null || e.gamma === null) return;
+    // beta: 前后倾 (-180~180), gamma: 左右倾 (-90~90)
+    const ny = Math.max(-1, Math.min(1, e.gamma / 45));
+    const nx = Math.max(-1, Math.min(1, (e.beta - 45) / 45));
+    gyroTargetY = ny * 0.6;
+    gyroTargetX = nx * 0.4;
+    gyroActive = true;
+  }
+  let gyroTargetY = 0, gyroTargetX = 0;
+  if (window.DeviceOrientationEvent) {
+    // iOS 13+ 需要请求权限
+    if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+      const btn = document.createElement('button');
+      btn.textContent = '📱 开启陀螺仪视角';
+      btn.style.cssText = 'position:absolute;top:1rem;right:1rem;padding:.4rem .8rem;background:rgba(200,168,255,.25);border:1px solid rgba(200,168,255,.4);border-radius:20px;color:#fff;font-size:.75rem;cursor:pointer;z-index:10;backdrop-filter:blur(10px)';
+      canvas.parentElement.appendChild(btn);
+      btn.addEventListener('click', () => {
+        DeviceOrientationEvent.requestPermission().then(state => {
+          if (state === 'granted') {
+            window.addEventListener('deviceorientation', handleOrientation);
+            btn.remove();
+          }
+        }).catch(() => {});
+      });
+    } else {
+      window.addEventListener('deviceorientation', handleOrientation);
+    }
+  }
+
   // 点击放大
   const raycaster = new T.Raycaster();
   const mouse = new T.Vector2();
@@ -3483,10 +3647,8 @@ async function buildAR(chapterEl){
     const hits = raycaster.intersectObjects(photoSprites);
     if (hits.length) {
       const i = photoSprites.indexOf(hits[0].object);
-      if (i >= 0) {
-        const idx = themeNames.indexOf(document.querySelector('.ar-theme.active').textContent);
-        const list = AR_THEMES[themeNames[idx]] || [];
-        openLightbox(list, i);
+      if (i >= 0 && window.__arPhotosOriginal) {
+        openLightbox(window.__arPhotosOriginal, window.__arPhotosThumb, photoLookup[i]);
       }
     }
   });
@@ -3494,16 +3656,21 @@ async function buildAR(chapterEl){
   let autoRot = 0;
   function loop(){
     autoRot += 0.002;
-    if (!isDown) {
+    const t = performance.now() * 0.001;
+    if (gyroActive) {
+      // 陀螺仪视角
+      rotY = lerp(rotY, gyroTargetY, 0.08);
+      rotX = lerp(rotX, gyroTargetX, 0.08);
+    } else if (!isDown) {
       rotY = lerp(rotY, Math.sin(autoRot) * 0.2, 0.05);
       rotX = lerp(rotX, Math.cos(autoRot * 0.7) * 0.1, 0.05);
     }
     group.rotation.y = rotY;
     group.rotation.x = rotX;
-    const t = performance.now() * 0.001;
     photoSprites.forEach(sp => {
       const s = sp.userData.baseScale + Math.sin(t * 1.5 + sp.userData.phase) * 0.1;
       sp.scale.set(s, s, 1);
+      sp.lookAt(camera.position);
     });
     renderer.render(scene, camera);
   }
