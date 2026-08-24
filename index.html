@@ -83,6 +83,90 @@ img{-webkit-user-drag:none;user-drag:none;-webkit-touch-callout:none}
 #musicBtn:active{transform:scale(.92)}
 #musicBtn.playing{color:#ffb0c4;border-color:#ffb0c4;background:rgba(255,176,196,.1)}
 
+/* ============== 预览大图 ============== */
+#preview{
+  position:fixed;inset:0;z-index:25;background:#000;
+  display:none;
+}
+#preview.active{display:block}
+.preview-stage{position:absolute;inset:0;overflow:hidden;background:#000}
+.preview-slide{
+  position:absolute;inset:0;
+  display:flex;align-items:center;justify-content:center;
+  opacity:0;transition:opacity .35s ease;
+  pointer-events:none;
+}
+.preview-slide.show{opacity:1;pointer-events:auto}
+.preview-slide img{
+  width:100%;height:100%;object-fit:contain;
+  background:#000;
+}
+.preview-loading{
+  position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  color:rgba(255,255,255,.6);font-size:.85rem;letter-spacing:.3em;
+  z-index:2;pointer-events:none;
+}
+.preview-loading::after{
+  content:'';display:block;width:30px;height:30px;
+  margin:14px auto 0;
+  border:2px solid rgba(255,255,255,.2);
+  border-top-color:rgba(255,180,200,.8);
+  border-radius:50%;
+  animation:spin 1s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.preview-back{
+  position:fixed;left:16px;top:max(env(safe-area-inset-top),16px);z-index:50;
+  width:42px;height:42px;border-radius:50%;
+  background:rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.2);
+  color:#fff;font-size:1.1rem;cursor:pointer;
+  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  display:none;align-items:center;justify-content:center;transition:all .25s ease;
+}
+.preview-back.show{display:flex}
+.preview-back:active{transform:scale(.92);background:rgba(255,255,255,.2)}
+
+.preview-info{
+  position:fixed;left:0;right:0;top:max(env(safe-area-inset-top),24px);
+  text-align:center;color:#fff;padding:0 24px;z-index:10;
+  pointer-events:none;
+}
+.preview-info .pn{font-family:"Cormorant Garamond",serif;font-style:italic;font-size:.85rem;letter-spacing:.3em;color:rgba(248,232,212,.8);margin-bottom:4px}
+.preview-info .pt{font-family:"Noto Serif SC",serif;font-weight:200;font-size:clamp(1.2rem,5vw,1.6rem);letter-spacing:.25em;text-shadow:0 2px 20px rgba(0,0,0,.7)}
+
+.preview-enter{
+  position:fixed;left:50%;bottom:max(env(safe-area-inset-bottom),30px);
+  transform:translateX(-50%);z-index:30;
+  display:none;align-items:center;gap:10px;
+  padding:14px 32px;border-radius:50px;
+  background:rgba(248,232,212,.95);
+  color:#3a1f1f;font-family:"Noto Serif SC",serif;font-size:.9rem;letter-spacing:.3em;
+  cursor:pointer;transition:all .3s ease;
+  box-shadow:0 6px 30px rgba(255,180,200,.4);
+  backdrop-filter:blur(10px);
+}
+.preview-enter.show{display:inline-flex}
+.preview-enter:active{transform:translateX(-50%) scale(.96)}
+.preview-enter .enter-arrow{animation:slideRight 1.5s ease-in-out infinite}
+@keyframes slideRight{0%,100%{transform:translateX(0)}50%{transform:translateX(4px)}}
+
+.preview-hint{
+  position:fixed;left:50%;bottom:calc(max(env(safe-area-inset-bottom),30px) + 70px);
+  transform:translateX(-50%);z-index:20;
+  color:rgba(255,255,255,.5);font-size:.7rem;letter-spacing:.3em;
+  pointer-events:none;display:none;
+}
+.preview-hint.show{display:block}
+
+.preview-dots{
+  position:fixed;right:12px;top:50%;transform:translateY(-50%);
+  z-index:15;display:none;flex-direction:column;gap:5px;
+}
+.preview-dots.show{display:flex}
+.pdot{width:4px;height:4px;border-radius:50%;background:rgba(255,255,255,.3);transition:all .3s}
+.pdot.active{background:#ffb0c4;transform:scale(1.6)}
+
 /* ============== 章节全屏视图 ============== */
 #viewer{
   position:fixed;inset:0;z-index:20;background:#000;
@@ -230,6 +314,18 @@ img{-webkit-user-drag:none;user-drag:none;-webkit-touch-callout:none}
 
 <!-- ============== 音乐按钮 ============== -->
 <button id="musicBtn" title="背景音乐">♪</button>
+
+<!-- ============== 预览大图 ============== -->
+<div id="preview">
+  <button class="preview-back" id="previewBack">‹</button>
+  <div class="preview-stage" id="previewStage"></div>
+  <div class="preview-enter" id="previewEnter">
+    <span class="enter-text">进 入 章 节</span>
+    <span class="enter-arrow">→</span>
+  </div>
+  <div class="preview-hint" id="previewHint">↑ 滑 · 切 换 同 章 节 照 片</div>
+  <div class="preview-dots" id="previewDots"></div>
+</div>
 
 <script type="importmap">
 {
@@ -405,6 +501,10 @@ const photoMeshes = [];  // {mesh, chapterIdx, photoSrc, baseScale}
 let highlightIdx = -1;
 let highlightGlow = 0;  // 0-1 渐变值
 
+// 暴露给测试
+window.photoCount = 0;
+window.openTime = Date.now();
+
 function fibonacciSphere(n, radius){
   const points = [];
   const phi = Math.PI * (3 - Math.sqrt(5));
@@ -420,89 +520,113 @@ function fibonacciSphere(n, radius){
 }
 
 async function buildSphereWall(photosData){
-  // 收集所有照片（每章 6 张 + 1 张主图，按 thumb）
-  const items = [];  // {chapterIdx, src, label}
+  // 收集所有照片（缩略图用 thumb_small，原图等用户点击才加载）
+  const allItems = [];
   CHAPTERS.forEach((ch, ci) => {
     if (!ch.folder) return;
     const photos = photosData[ch.folder]?.original || [];
     const shuffled = shuffle(photos);
-    const mainPhoto = shuffled[0];
-    const coll = shuffled.slice(1, 7);
-    if (mainPhoto){
-      items.push({
+    shuffled.forEach((p, i) => {
+      if (!p) return;
+      allItems.push({
         chapterIdx: ci,
-        src: `${ch.folder}/${mainPhoto}`,
-        thumbSrc: `${ch.folder}/thumb/${mainPhoto.replace(/^thumb\//,'')}`,
-        isMain: true
+        src: `${ch.folder}/${p}`,
+        thumbSrc: `${ch.folder}/thumb_small/${p.replace(/^thumb\//,'')}`,
+        isMain: i === 0
       });
-    }
-    coll.forEach(p => {
-      if (p){
-        items.push({
-          chapterIdx: ci,
-          src: `${ch.folder}/${p}`,
-          thumbSrc: `${ch.folder}/thumb/${p.replace(/^thumb\//,'')}`,
-          isMain: false
-        });
-      }
     });
   });
 
-  const totalPhotos = items.length;
+  // 第一批：每章主图（8 张） - 立即加载
+  const mainItems = allItems.filter(it => it.isMain);
+  const otherItems = allItems.filter(it => !it.isMain);
+  // 第一批再额外加几张 coll（最多共 16 张，先够球面铺开一圈）
+  const firstBatch = [...mainItems, ...shuffle(otherItems).slice(0, 8)];
+  const restBatch = otherItems.filter(it => !firstBatch.includes(it));
+
   const loader = document.getElementById('loader');
   const loaderFill = document.getElementById('loaderFill');
   const loaderPct = document.getElementById('loaderPct');
   loader.classList.add('show');
 
-  // 加载所有照片，统计进度
-  const textures = [];
-  let loadedCount = 0;
-  await Promise.all(items.map((it, i) => new Promise(resolve => {
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => {
-      const tex = new THREE.Texture(img);
-      tex.colorSpace = THREE.SRGBColorSpace;
-      tex.needsUpdate = true;
-      textures[i] = tex;
-      loadedCount++;
-      const pct = Math.floor(loadedCount / totalPhotos * 100);
-      loaderFill.style.width = pct + '%';
-      loaderPct.textContent = pct + '%';
-      resolve();
-    };
-    img.onerror = () => {
-      loadedCount++;
-      loaderFill.style.width = Math.floor(loadedCount/totalPhotos*100)+'%';
-      resolve();
-    };
-    img.src = it.thumbSrc;
-  })));
+  // 用 Fibonacci 球面分布（按 firstBatch 数量先占位，加载完一张占一个槽）
+  // 实际占位数 = firstBatch.length + restBatch.length = 全部
+  const totalPositions = allItems.length;
+  const allPositions = fibonacciSphere(totalPositions, SPHERE_R - 2.5);
 
-  // 用 Fibonacci 球面分布
-  const positions = fibonacciSphere(items.length, SPHERE_R - 2.5);
+  function loadOne(item){
+    return new Promise(resolve => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        const tex = new THREE.Texture(img);
+        tex.colorSpace = THREE.SRGBColorSpace;
+        tex.needsUpdate = true;
+        resolve({ item, tex });
+      };
+      img.onerror = () => resolve(null);
+      img.src = item.thumbSrc;
+    });
+  }
 
-  items.forEach((it, i) => {
-    if (!textures[i]) return;
-    const tex = textures[i];
+  function addPhotoToSphere(item, tex, posIndex){
     const img = tex.image;
-    // 平面宽高比 = 图片本身
     const aspect = img.width / img.height;
     const baseH = 6.5;
     const baseW = baseH * aspect;
     const geo = new THREE.PlaneGeometry(baseW, baseH);
-    const mat = new THREE.MeshBasicMaterial({ map: tex, transparent:false, side:THREE.DoubleSide });
+    const mat = new THREE.MeshBasicMaterial({ map: tex, side:THREE.DoubleSide });
     const mesh = new THREE.Mesh(geo, mat);
-    const pos = positions[i];
-    mesh.position.copy(pos);
-    // 朝向球心
+    mesh.position.copy(allPositions[posIndex]);
     mesh.lookAt(0, 0, 0);
+    // 入场从 scale 0 长到 1
+    mesh.scale.set(0.01, 0.01, 0.01);
     photoGroup.add(mesh);
-    photoMeshes.push({ mesh, chapterIdx: it.chapterIdx, src: it.src });
-  });
+    photoMeshes.push({ mesh, chapterIdx: item.chapterIdx, src: item.src });
+    window.photoCount = photoMeshes.length;
+  }
 
+  // 第一批加载（并发，加载一张立刻入场）
+  let posIdx = 0;
+  let firstLoaded = 0;
+  const firstPromises = firstBatch.map(item =>
+    loadOne(item).then(result => {
+      if (result){
+        addPhotoToSphere(result.item, result.tex, posIdx++);
+      }
+      firstLoaded++;
+      const pct = Math.floor(firstLoaded / firstBatch.length * 100);
+      loaderFill.style.width = pct + '%';
+      loaderPct.textContent = pct + '%';
+    })
+  );
+
+  // 等前 4 张加载完就关闭 loader（不必等全部 16 张）
+  // 用 race + 短超时模拟"前几张完成"
+  await Promise.race([
+    new Promise(r => setTimeout(() => r('timeout'), 1500)),  // 至少显示 1.5s loader
+    Promise.all(firstPromises.slice(0, 4))
+  ]);
+
+  // 第一批加载完就关闭 loader
   loader.classList.remove('show');
   setTimeout(() => loader.remove(), 500);
+
+  // 继续加载第一批剩余
+  await Promise.all(firstPromises);
+
+  // 第二批：剩余照片异步加载（并发数 4，避免一次性请求过多）
+  const CONCURRENT = 4;
+  for (let i = 0; i < restBatch.length; i += CONCURRENT){
+    const slice = restBatch.slice(i, i + CONCURRENT);
+    await Promise.all(slice.map(item =>
+      loadOne(item).then(result => {
+        if (result){
+          addPhotoToSphere(result.item, result.tex, posIdx++);
+        }
+      })
+    ));
+  }
 }
 
 // 旋转控制（拖动 + 自动旋转）
@@ -553,10 +677,23 @@ homeRenderer.domElement.addEventListener('mousemove', e => {
 homeRenderer.domElement.addEventListener('mouseup', () => isDragging = false);
 homeRenderer.domElement.addEventListener('mouseleave', () => isDragging = false);
 
-// 点击照片
+// 点击照片 - 打开预览大图
 const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
 let touchDownX = 0, touchDownY = 0;
+
+function pickPhoto(clientX, clientY){
+  const rect = homeRenderer.domElement.getBoundingClientRect();
+  mouse.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+  mouse.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+  raycaster.setFromCamera(mouse, homeCamera);
+  const meshes = photoMeshes.map(p => p.mesh);
+  const hits = raycaster.intersectObjects(meshes);
+  if (hits.length){
+    return photoMeshes.find(p => p.mesh === hits[0].object) || null;
+  }
+  return null;
+}
 
 homeRenderer.domElement.addEventListener('touchstart', e => {
   touchDownX = e.touches[0].clientX;
@@ -565,35 +702,19 @@ homeRenderer.domElement.addEventListener('touchstart', e => {
 homeRenderer.domElement.addEventListener('touchend', e => {
   const dx = Math.abs(e.changedTouches[0].clientX - touchDownX);
   const dy = Math.abs(e.changedTouches[0].clientY - touchDownY);
-  if (dx > 8 || dy > 8) return;  // 拖动不算点击
-  const rect = homeRenderer.domElement.getBoundingClientRect();
-  mouse.x = ((e.changedTouches[0].clientX - rect.left) / rect.width) * 2 - 1;
-  mouse.y = -((e.changedTouches[0].clientY - rect.top) / rect.height) * 2 + 1;
-  raycaster.setFromCamera(mouse, homeCamera);
-  const meshes = photoMeshes.map(p => p.mesh);
-  const hits = raycaster.intersectObjects(meshes);
-  if (hits.length){
-    const hit = hits[0].object;
-    const pm = photoMeshes.find(p => p.mesh === hit);
-    if (pm) openChapter(pm.chapterIdx);
-  }
+  if (dx > 8 || dy > 8) return;
+  const pm = pickPhoto(e.changedTouches[0].clientX, e.changedTouches[0].clientY);
+  if (pm) openPreview(pm);
 });
 
 homeRenderer.domElement.addEventListener('click', e => {
-  const rect = homeRenderer.domElement.getBoundingClientRect();
-  mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-  mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-  raycaster.setFromCamera(mouse, homeCamera);
-  const meshes = photoMeshes.map(p => p.mesh);
-  const hits = raycaster.intersectObjects(meshes);
-  if (hits.length){
-    const hit = hits[0].object;
-    const pm = photoMeshes.find(p => p.mesh === hit);
-    if (pm) openChapter(pm.chapterIdx);
-  }
+  const pm = pickPhoto(e.clientX, e.clientY);
+  if (pm) openPreview(pm);
 });
 
-// 自动旋转 + 高亮镜头正前方的照片
+// 自动旋转 + 高亮镜头正前方的照片 + 共享入场缩放
+const photoEnterStart = new WeakMap();  // mesh -> 入场开始时间
+
 function animateHome(){
   if (autoRotate){
     rotY += 0.0012;
@@ -604,7 +725,6 @@ function animateHome(){
   // 找到最朝向镜头的照片（z 最大，即最靠近镜头）
   let bestIdx = -1;
   let bestZ = -Infinity;
-  const camDir = new THREE.Vector3(0, 0, 1);
   const tmpVec = new THREE.Vector3();
   photoMeshes.forEach((p, i) => {
     tmpVec.copy(p.mesh.position).applyEuler(photoGroup.rotation);
@@ -615,21 +735,24 @@ function animateHome(){
     }
   });
 
-  // 平滑过渡高亮
-  const target = bestIdx >= 0 ? 1 : 0;
-  highlightGlow += (target - highlightGlow) * 0.08;
-
+  const now = performance.now();
   photoMeshes.forEach((p, i) => {
+    // 入场缩放（一次性，0.6s 从 0 长到 1）
+    if (!photoEnterStart.has(p.mesh)){
+      photoEnterStart.set(p.mesh, now);
+    }
+    const enterT = Math.min(1, (now - photoEnterStart.get(p.mesh)) / 600);
+    const enterScale = enterT < 1 ? (1 - Math.pow(1 - enterT, 3)) : 1;  // easeOutCubic
+
+    // 高亮缩放
     const isHi = (i === bestIdx && bestZ > 5);
     const targetScale = isHi ? 1.15 : 1.0;
     const cur = p.mesh.scale.x;
-    const next = cur + (targetScale - cur) * 0.1;
-    p.mesh.scale.set(next, next, 1);
-    if (isHi){
-      p.mesh.material.opacity = 1;
-    } else {
-      p.mesh.material.opacity = 0.85;
-    }
+    const highlightScale = cur + (targetScale - cur) * 0.1;
+
+    // 取较小值（如果还在入场就不放大）
+    const finalScale = enterT < 1 ? enterScale : highlightScale;
+    p.mesh.scale.set(finalScale, finalScale, 1);
   });
 
   homeRenderer.render(homeScene, homeCamera);
@@ -644,7 +767,176 @@ window.addEventListener('resize', () => {
 });
 
 // ============================================================
-// 4. 章节全屏视图
+// 4. 预览大图（原图懒加载 + 进入章节入口）
+// ============================================================
+const previewEl = document.getElementById('preview');
+const previewStage = document.getElementById('previewStage');
+const previewBack = document.getElementById('previewBack');
+const previewEnter = document.getElementById('previewEnter');
+const previewHint = document.getElementById('previewHint');
+const previewDots = document.getElementById('previewDots');
+
+let previewChapterIdx = 0;
+let previewPhotos = [];      // 该章节所有原图 URL
+let previewPhotoIdx = 0;
+let previewAllChapters = {};  // 缓存每章的照片列表
+
+async function openPreview(pm){
+  previewChapterIdx = pm.chapterIdx;
+  // 取该章节所有照片（不重复）
+  const ch = CHAPTERS[previewChapterIdx];
+  if (!previewAllChapters[previewChapterIdx]){
+    if (ch.folder){
+      const data = await loadPhotosData();
+      previewAllChapters[previewChapterIdx] = (data[ch.folder]?.original || []).map(p => `${ch.folder}/${p}`);
+    } else {
+      previewAllChapters[previewChapterIdx] = [];
+    }
+  }
+  previewPhotos = previewAllChapters[previewChapterIdx];
+  // 找到当前点击的照片在预览列表中的位置
+  previewPhotoIdx = previewPhotos.findIndex(p => p === pm.src);
+  if (previewPhotoIdx < 0) previewPhotoIdx = 0;
+
+  previewEl.classList.add('active');
+  homeEl.style.display = 'none';
+  previewBack.classList.add('show');
+  previewEnter.classList.add('show');
+  setTimeout(() => previewHint.classList.add('show'), 600);
+
+  document.getElementById('homeTitle').style.display = 'none';
+  document.getElementById('homeHint').style.display = 'none';
+
+  buildPreviewDots();
+  renderPreview();
+}
+
+function buildPreviewDots(){
+  previewDots.innerHTML = '';
+  previewPhotos.forEach((_, i) => {
+    const d = document.createElement('div');
+    d.className = 'pdot';
+    if (i === previewPhotoIdx) d.classList.add('active');
+    d.addEventListener('click', e => { e.stopPropagation(); previewPhotoIdx = i; renderPreview(); });
+    previewDots.appendChild(d);
+  });
+  previewDots.classList.add('show');
+}
+
+function renderPreview(){
+  const ch = CHAPTERS[previewChapterIdx];
+  previewStage.innerHTML = `
+    <div class="preview-info">
+      <div class="pn">No.${String(previewChapterIdx).padStart(2,'0')} · ${ch.en}</div>
+      <div class="pt">${ch.title}</div>
+    </div>
+  `;
+  // 加载原图
+  const loading = document.createElement('div');
+  loading.className = 'preview-loading';
+  loading.textContent = '加载原图中…';
+  previewStage.appendChild(loading);
+
+  const url = previewPhotos[previewPhotoIdx];
+  const img = new Image();
+  img.onload = () => {
+    loading.remove();
+    const slide = document.createElement('div');
+    slide.className = 'preview-slide show';
+    slide.innerHTML = `<img src="${url}" alt="${ch.title}">`;
+    previewStage.appendChild(slide);
+    // 更新 dots
+    previewDots.querySelectorAll('.pdot').forEach((d, i) => d.classList.toggle('active', i === previewPhotoIdx));
+  };
+  img.onerror = () => {
+    loading.textContent = '加载失败';
+  };
+  img.src = url;
+}
+
+function closePreview(){
+  previewEl.classList.remove('active');
+  homeEl.style.display = 'block';
+  previewBack.classList.remove('show');
+  previewEnter.classList.remove('show');
+  previewHint.classList.remove('show');
+  previewDots.classList.remove('show');
+  document.getElementById('homeTitle').style.display = 'block';
+  document.getElementById('homeHint').style.display = 'block';
+  previewStage.innerHTML = '';
+}
+
+previewBack.addEventListener('click', closePreview);
+previewEnter.addEventListener('click', () => {
+  closePreview();
+  openChapter(previewChapterIdx);
+});
+
+// 预览页触摸切换
+let prevTSX = 0, prevTSY = 0, prevTST = 0;
+previewEl.addEventListener('touchstart', e => {
+  prevTSX = e.touches[0].clientX;
+  prevTSY = e.touches[0].clientY;
+  prevTST = performance.now();
+}, {passive:true});
+previewEl.addEventListener('touchend', e => {
+  const dx = e.changedTouches[0].clientX - prevTSX;
+  const dy = e.changedTouches[0].clientY - prevTSY;
+  const dt = performance.now() - prevTST;
+  if (dt > 600) return;
+  if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)){
+    // 左右滑 → 切换章节
+    if (dx < 0) previewNextChapter();
+    else previewPrevChapter();
+  } else if (Math.abs(dy) > 50){
+    // 上下滑 → 切换同章节照片
+    if (dy < 0) previewNext();
+    else previewPrev();
+  }
+}, {passive:true});
+
+function previewNext(){
+  if (previewPhotoIdx < previewPhotos.length - 1){
+    previewPhotoIdx++;
+    renderPreview();
+  }
+}
+function previewPrev(){
+  if (previewPhotoIdx > 0){
+    previewPhotoIdx--;
+    renderPreview();
+  }
+}
+function previewNextChapter(){
+  // 找到下一个有 folder 的章节
+  for (let i = previewChapterIdx + 1; i < CHAPTERS.length; i++){
+    if (CHAPTERS[i].folder){ switchPreviewChapter(i); return; }
+  }
+}
+function previewPrevChapter(){
+  for (let i = previewChapterIdx - 1; i >= 0; i--){
+    if (CHAPTERS[i].folder){ switchPreviewChapter(i); return; }
+  }
+}
+async function switchPreviewChapter(idx){
+  previewChapterIdx = idx;
+  const ch = CHAPTERS[idx];
+  if (!previewAllChapters[idx]){
+    if (ch.folder){
+      const data = await loadPhotosData();
+      previewAllChapters[idx] = (data[ch.folder]?.original || []).map(p => `${ch.folder}/${p}`);
+    } else {
+      previewAllChapters[idx] = [];
+    }
+  }
+  previewPhotos = previewAllChapters[idx];
+  previewPhotoIdx = 0;
+  buildPreviewDots();
+  renderPreview();
+}
+
+// ============================================================
+// 5. 章节全屏视图
 // ============================================================
 const viewerEl = document.getElementById('viewer');
 const viewerStage = document.getElementById('viewerStage');
@@ -962,7 +1254,7 @@ viewerBack.addEventListener('click', () => {
 });
 
 // ============================================================
-// 5. Web Audio 钢琴
+// 6. Web Audio 钢琴
 // ============================================================
 let audioCtx = null, musicPlaying = false;
 const musicBtn = document.getElementById('musicBtn');
@@ -1030,6 +1322,7 @@ musicBtn.addEventListener('click', () => { musicPlaying ? stopMusic() : startMus
 // 6. 启动
 // ============================================================
 document.getElementById('openBtn').addEventListener('click', async () => {
+  window.openTime = Date.now();
   document.getElementById('splash').classList.add('hidden');
   setTimeout(() => document.getElementById('splash').remove(), 1300);
   startMusic();
