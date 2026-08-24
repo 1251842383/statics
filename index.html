@@ -123,17 +123,6 @@ img{-webkit-user-drag:none;user-drag:none;-webkit-touch-callout:none}
 #homeTitle .t1{font-family:"Dancing Script",serif;font-size:clamp(1.8rem,7vw,2.4rem);text-shadow:0 2px 20px rgba(0,0,0,.8)}
 #homeTitle .t2{font-family:"Cormorant Garamond",serif;font-style:italic;font-size:.75rem;letter-spacing:.5em;color:rgba(248,232,212,.7);margin-top:4px}
 
-#musicBtn{
-  position:fixed;top:max(env(safe-area-inset-top),16px);right:16px;z-index:100;
-  width:42px;height:42px;border-radius:50%;
-  background:rgba(248,232,212,.08);border:1px solid rgba(248,232,212,.25);
-  color:#f8e8d4;font-size:1rem;cursor:pointer;
-  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
-  display:flex;align-items:center;justify-content:center;transition:all .25s ease;
-}
-#musicBtn:active{transform:scale(.92)}
-#musicBtn.playing{color:#ffb0c4;border-color:#ffb0c4;background:rgba(255,176,196,.1)}
-
 /* ============== 预览大图 ============== */
 #preview{
   position:fixed;inset:0;z-index:25;background:#000;
@@ -364,8 +353,7 @@ img{-webkit-user-drag:none;user-drag:none;-webkit-touch-callout:none}
   <div class="viewer-dots" id="viewerDots"></div>
 </div>
 
-<!-- ============== 音乐按钮 ============== -->
-<button id="musicBtn" title="背景音乐">♪</button>
+<!-- 音乐按钮已移除（按用户要求） -->
 
 <!-- ============== 预览大图 ============== -->
 <div id="preview">
@@ -1237,6 +1225,8 @@ async function openChapter(idx){
   // 隐藏首页标题和提示
   document.getElementById('homeTitle').style.display = 'none';
   document.getElementById('homeHint').style.display = 'none';
+  // 切换到对应章节的 BGM
+  if (ch.bgm) switchBGM(ch.bgm);
 
   // 加载这一章的照片
   viewerPhotos = [];
@@ -1538,69 +1528,166 @@ viewerBack.addEventListener('click', () => {
 });
 
 // ============================================================
-// 6. Web Audio 钢琴
+// 6. Web Audio 章节 BGM（程序化钢琴，4 首风格对应 4 首歌）
 // ============================================================
-let audioCtx = null, musicPlaying = false;
-const musicBtn = document.getElementById('musicBtn');
+let audioCtx = null, musicPlaying = false, musicLoopTimer = null;
+let currentBGM = null;
+
 const NOTES = {
   C4:261.63,D4:293.66,E4:329.63,F4:349.23,G4:392.00,A4:440.00,B4:493.88,
   C5:523.25,D5:587.33,E5:659.25,F5:698.46,G5:783.99,A5:880.00,B5:987.77,
-  C6:1046.50,D6:1174.66,E6:1318.51
+  C6:1046.50,D6:1174.66,E6:1318.51,
+  Eb4:311.13,Ab4:415.30,Bb4:466.16,Eb5:622.25,Ab5:830.61,
+  Fs4:369.99,Cs5:554.37,Fs5:739.99
 };
-const MELODY = [
-  {n:'E5',d:1},{n:'E5',d:1},{n:'F5',d:1},{n:'D5',d:1},
-  {n:'C5',d:1},{n:'D5',d:1},{n:'E5',d:2},
-  {n:'D5',d:1},{n:'D5',d:1},{n:'E5',d:1},{n:'C5',d:1},
-  {n:'D5',d:1},{n:'E5',d:.5},{n:'F5',d:.5},{n:'E5',d:1},{n:'C5',d:1},
-  {n:'D5',d:2},{n:'G4',d:2},
-  {n:'C6',d:1},{n:'C6',d:1},{n:'D6',d:1},{n:'B5',d:1},
-  {n:'A5',d:1},{n:'B5',d:1},{n:'C6',d:2},
-  {n:'B5',d:1},{n:'B5',d:1},{n:'C6',d:1},{n:'A5',d:1},
-  {n:'B5',d:1},{n:'C6',d:.5},{n:'D6',d:.5},{n:'C6',d:1},{n:'A5',d:1},
-  {n:'B5',d:2},{n:'E5',d:2}
-];
-const CHORDS = [
-  ['C4','E4','G4'],['C4','E4','G4'],['F4','A4','C5'],['F4','A4','C5'],
-  ['G4','B4','D5'],['G4','B4','D5'],['C4','E4','G4'],['C4','E4','G4'],
-  ['F4','A4','C5'],['F4','A4','C5'],['G4','B4','D5'],['C4','E4','G4']
-];
-function playNote(freq, st, dur, vol=.12, type='triangle'){
+
+// 4 套 BGM：lucky / story / slow / future（分别对应 4 首歌）
+const BGMS = {
+  lucky: {  // 小幸运（遇见）—— C 大调 ~88 BPM，folk 风轻盈
+    tempo: 88, type:'triangle', vol:.10, bassVol:.04, padVol:.025,
+    melody: [
+      {n:'E5',d:.5},{n:'G5',d:.5},{n:'C6',d:1},{n:'B5',d:.5},{n:'A5',d:.5},
+      {n:'G5',d:1},{n:'E5',d:1},
+      {n:'F5',d:.5},{n:'A5',d:.5},{n:'C6',d:1},{n:'B5',d:.5},{n:'G5',d:.5},
+      {n:'A5',d:1},{n:'F5',d:1},
+      {n:'E5',d:.5},{n:'G5',d:.5},{n:'C6',d:1.5},
+      {n:'G5',d:.5},{n:'E5',d:1},
+      {n:'A5',d:1},{n:'G5',d:.5},{n:'F5',d:.5},{n:'E5',d:2}
+    ],
+    chords: [
+      ['C4','E4','G4'],['C4','E4','G4'],['F4','A4','C5'],['F4','A4','C5'],
+      ['A3','C4','E4'],['A3','C4','E4'],['F4','A4','C5'],['G3','B3','D4']
+    ]
+  },
+  story: {  // 将故事写成我们（相爱/婚礼）—— D 大调 ~72 BPM，温暖中国风
+    tempo: 72, type:'sine', vol:.095, bassVol:.05, padVol:.03,
+    melody: [
+      {n:'D5',d:1},{n:'Fs5',d:1},{n:'A5',d:2},
+      {n:'G5',d:1},{n:'Fs5',d:1},{n:'E5',d:2},
+      {n:'D5',d:1},{n:'A5',d:1.5},{n:'G5',d:.5},
+      {n:'Fs5',d:2},{n:'E5',d:1},{n:'D5',d:1},
+      {n:'A5',d:1.5},{n:'B5',d:.5},{n:'A5',d:2},
+      {n:'G5',d:1},{n:'Fs5',d:1},{n:'E5',d:2}
+    ],
+    chords: [
+      ['D3','A3','D4'],['D3','A3','D4'],['G3','D4','G4'],['G3','D4','G4'],
+      ['E3','B3','E4'],['E3','B3','E4'],['D3','Fs3','A3'],['D3','A3','D4']
+    ]
+  },
+  slow: {  // 慢慢喜欢你（日常）—— Bb 大调 ~68 BPM，慵懒柔情
+    tempo: 68, type:'triangle', vol:.09, bassVol:.045, padVol:.025,
+    melody: [
+      {n:'F5',d:1.5},{n:'D5',d:.5},{n:'F5',d:2},
+      {n:'G5',d:1},{n:'Bb5',d:1.5},{n:'A5',d:.5},
+      {n:'G5',d:2},{n:'F5',d:2},
+      {n:'Eb5',d:1.5},{n:'F5',d:.5},{n:'G5',d:2},
+      {n:'F5',d:2},{n:'Eb5',d:2},
+      {n:'D5',d:1.5},{n:'F5',d:.5},{n:'Bb5',d:2}
+    ],
+    chords: [
+      ['Bb3','D4','F4'],['Bb3','D4','F4'],['Eb4','G4','Bb4'],['Eb4','G4','Bb4'],
+      ['F3','A3','C4'],['Bb3','D4','F4'],['Gm3','D4','G4'],['Bb3','D4','F4']
+    ]
+  },
+  future: {  // 五十年以后（未来）—— F 大调 ~76 BPM，明亮憧憬
+    tempo: 76, type:'sine', vol:.10, bassVol:.05, padVol:.028,
+    melody: [
+      {n:'C5',d:.5},{n:'F5',d:.5},{n:'A5',d:1},{n:'G5',d:.5},{n:'F5',d:.5},
+      {n:'A5',d:1.5},{n:'Bb5',d:.5},
+      {n:'C6',d:1.5},{n:'Bb5',d:.5},{n:'A5',d:2},
+      {n:'G5',d:1},{n:'F5',d:1},{n:'A5',d:2},
+      {n:'Bb5',d:1},{n:'C6',d:1},{n:'A5',d:2},
+      {n:'F5',d:1},{n:'G5',d:1},{n:'A5',d:2}
+    ],
+    chords: [
+      ['F3','A3','C4'],['F3','A3','C4'],['Bb3','D4','F4'],['Bb3','D4','F4'],
+      ['C4','E4','G4'],['F3','A3','C4'],['Gm3','D4','G4'],['F3','A3','C4']
+    ]
+  }
+};
+
+// 章节 → BGM 映射（4 首歌按叙事递进）
+CHAPTERS.forEach(ch => {
+  if (ch.isCover) { ch.bgm = null; return; }
+  if (ch.isWish) { ch.bgm = 'future'; return; }
+  const map = {
+    'ch01':'lucky','ch02':'lucky',
+    'ch03':'story','ch04':'slow','ch05':'slow','ch06':'slow','ch07':'story',
+    'ch11':'future'
+  };
+  ch.bgm = map[ch.id] || 'lucky';
+});
+
+function playNote(freq, st, dur, vol, type){
   if (!audioCtx) return;
   const osc = audioCtx.createOscillator();
   const g = audioCtx.createGain();
   osc.type = type; osc.frequency.value = freq;
-  g.gain.setValueAtTime(0,st);
-  g.gain.linearRampToValueAtTime(vol,st+.02);
-  g.gain.exponentialRampToValueAtTime(vol*.5,st+dur*.5);
-  g.gain.exponentialRampToValueAtTime(.001,st+dur);
+  g.gain.setValueAtTime(0, st);
+  g.gain.linearRampToValueAtTime(vol, st + .02);
+  g.gain.exponentialRampToValueAtTime(vol*.5, st + dur*.5);
+  g.gain.exponentialRampToValueAtTime(.001, st + dur);
   osc.connect(g).connect(audioCtx.destination);
-  osc.start(st); osc.stop(st+dur+.1);
+  osc.start(st); osc.stop(st + dur + .1);
 }
-function playMusicLoop(){
+function playPad(freqs, st, dur, vol){
+  if (!audioCtx) return;
+  freqs.forEach(f => {
+    const osc = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    osc.type = 'sine'; osc.frequency.value = f;
+    g.gain.setValueAtTime(0, st);
+    g.gain.linearRampToValueAtTime(vol, st + .5);
+    g.gain.linearRampToValueAtTime(vol, st + dur - .5);
+    g.gain.exponentialRampToValueAtTime(.001, st + dur);
+    osc.connect(g).connect(audioCtx.destination);
+    osc.start(st); osc.stop(st + dur + .1);
+  });
+}
+function playBGM(name){
   if (!audioCtx || !musicPlaying) return;
-  const tempo = 76, beatDur = 60/tempo;
+  const bgm = BGMS[name];
+  if (!bgm) return;
+  const tempo = bgm.tempo, beatDur = 60/tempo;
   const t0 = audioCtx.currentTime + .1;
-  const loopDur = MELODY.reduce((s,n) => s+n.d, 0) * beatDur;
+  const loopDur = bgm.melody.reduce((s, n) => s + n.d, 0) * beatDur;
+
   let t = t0;
-  MELODY.forEach(n => { playNote(NOTES[n.n], t, n.d*beatDur*.9); t += n.d*beatDur; });
-  const chordStep = loopDur / CHORDS.length;
-  CHORDS.forEach((c,i) => c.forEach(note => playNote(NOTES[note], t0+i*chordStep, chordStep*.95, .035, 'sine')));
-  for (let i=0;i<loopDur;i+=beatDur*2) playNote(130.81, t0+i, beatDur*1.8, .02, 'sine');
-  setTimeout(playMusicLoop, (loopDur - .5) * 1000);
+  bgm.melody.forEach(n => {
+    if (NOTES[n.n] !== undefined)
+      playNote(NOTES[n.n], t, n.d * beatDur * .9, bgm.vol, bgm.type);
+    t += n.d * beatDur;
+  });
+  const chordStep = loopDur / bgm.chords.length;
+  bgm.chords.forEach((c, i) => {
+    c.forEach(note => {
+      if (NOTES[note] !== undefined)
+        playNote(NOTES[note], t0 + i*chordStep, chordStep*.95, bgm.padVol, 'sine');
+    });
+  });
+  playPad(bgm.chords[0].map(n => NOTES[n]/4).filter(n => n && isFinite(n)), t0, loopDur, bgm.bassVol);
+
+  musicLoopTimer = setTimeout(() => playBGM(name), (loopDur - .3) * 1000);
 }
 function startMusic(){
   if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   if (audioCtx.state === 'suspended') audioCtx.resume();
   musicPlaying = true;
-  musicBtn.classList.add('playing'); musicBtn.textContent = '�';
-  playMusicLoop();
 }
 function stopMusic(){
   musicPlaying = false;
-  musicBtn.classList.remove('playing'); musicBtn.textContent = '♪';
+  if (musicLoopTimer) clearTimeout(musicLoopTimer);
   if (audioCtx) audioCtx.suspend();
 }
-musicBtn.addEventListener('click', () => { musicPlaying ? stopMusic() : startMusic(); });
+function switchBGM(name){
+  if (!audioCtx || !musicPlaying || !name) return;
+  if (currentBGM === name) return;
+  if (musicLoopTimer) clearTimeout(musicLoopTimer);
+  currentBGM = name;
+  playBGM(name);
+}
+
+
 
 // ============================================================
 // 6. 启动
@@ -1610,6 +1697,7 @@ document.getElementById('openBtn').addEventListener('click', async () => {
   document.getElementById('splash').classList.add('hidden');
   setTimeout(() => document.getElementById('splash').remove(), 1300);
   startMusic();
+  switchBGM('lucky');  // 首页（球面）播 lucky 风格的 BGM（小幸运）
   const photosData = await loadPhotosData();
   await buildSphereWall(photosData);
 });
