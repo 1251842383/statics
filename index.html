@@ -450,6 +450,32 @@ img{-webkit-user-drag:none;user-drag:none;-webkit-touch-callout:none}
 .loader-thumb.show{opacity:1;transform:translateY(0) scale(1)}
 .loader-thumb.glow{box-shadow:0 0 12px rgba(255,142,179,.35)}
 
+/* 程序员控制台日志（打字机效果） */
+.loader-log{
+  margin-top:18px;width:90%;max-width:340px;height:54px;
+  font-family:"Courier New",monospace;font-size:.65rem;
+  color:rgba(140,220,180,.7);letter-spacing:.05em;
+  text-align:left;line-height:1.5;
+  opacity:0;animation:fadeIn .8s ease 1.2s forwards;
+  overflow:hidden;
+}
+.loader-log .ln{display:block}
+.loader-log .k{color:#c8a2ff}
+.loader-log .s{color:#ffb0c4}
+.loader-log .ok{color:#88ff88}
+
+/* CRT 扫描线 + 渐变暗角 */
+.loader-scan{
+  position:absolute;inset:0;pointer-events:none;z-index:1;
+  background:repeating-linear-gradient(0deg,
+    rgba(255,255,255,.02) 0 1px,transparent 1px 3px);
+  animation:scanShift 6s linear infinite;
+}
+@keyframes scanShift{
+  0%{background-position:0 0}
+  100%{background-position:0 100px}
+}
+
 @media (max-width:380px){
   .viewer-title{font-size:1.5rem}
   .viewer-text{font-size:.82rem}
@@ -919,7 +945,9 @@ img{-webkit-user-drag:none;user-drag:none;-webkit-touch-callout:none}
     <div class="loader-thumbs">
       <div class="loader-thumbs-track" id="loaderThumbs"></div>
     </div>
+    <div class="loader-log" id="loaderLog"></div>
   </div>
+  <div class="loader-scan"></div>
 </div>
 
 <!-- ============== 3D 球面首页 ============== -->
@@ -1134,14 +1162,42 @@ const CHAPTERS = [
   showQuote();
   setInterval(showQuote, 3200);
 
+  // 程序员控制台日志（逐行打字）
+  const logEl = document.getElementById('loaderLog');
+  const logLines = [
+    { html: '<span class="k">$</span> <span class="s">love.init()</span> ... <span class="ok">ok</span>' },
+    { html: '<span class="k">$</span> loading <span class="s">memories.json</span> ...' },
+    { html: '<span class="k">$</span> binding <span class="s">heart.geometry</span> ... <span class="ok">ok</span>' },
+    { html: '<span class="k">$</span> <span style="color:#88c0ff">>></span> awaiting your smile <span class="ok">♥</span>' }
+  ];
+  if (logEl){
+    let li = 0;
+    function typeLine(){
+      if (li >= logLines.length){ setTimeout(() => { logEl.innerHTML = ''; li = 0; typeLine(); }, 1800); return; }
+      const ln = document.createElement('span');
+      ln.className = 'ln';
+      ln.innerHTML = logLines[li].html;
+      ln.style.opacity = '0';
+      ln.style.transform = 'translateX(-4px)';
+      ln.style.transition = 'opacity .35s ease, transform .35s ease';
+      logEl.appendChild(ln);
+      requestAnimationFrame(() => { ln.style.opacity = '1'; ln.style.transform = 'translateX(0)'; });
+      // 限制最多显示 3 行
+      while (logEl.children.length > 3) logEl.removeChild(logEl.firstChild);
+      li++;
+      setTimeout(typeLine, 1100 + Math.random() * 400);
+    }
+    setTimeout(typeLine, 600);
+  }
+
   // 星空粒子
   const stars = [];
-  for (let i = 0; i < 60; i++){
+  for (let i = 0; i < 80; i++){
     stars.push({
       x: Math.random(),
       y: Math.random(),
-      sz: 0.4 + Math.random() * 1.0,
-      alpha: 0.3 + Math.random() * 0.4,
+      sz: 0.4 + Math.random() * 1.2,
+      alpha: 0.3 + Math.random() * 0.5,
       sp: 0.0008 + Math.random() * 0.0012,
       ph: Math.random() * Math.PI * 2
     });
@@ -1149,8 +1205,8 @@ const CHAPTERS = [
 
   // 代码雨（缓慢下落的小段代码）
   const codeDrops = [];
-  const TOKEN_PER_DROP = 8;
-  for (let i = 0; i < 14; i++){
+  const TOKEN_PER_DROP = 10;
+  for (let i = 0; i < 22; i++){
     const seq = [];
     for (let k = 0; k < TOKEN_PER_DROP; k++){
       seq.push(tokens[Math.floor(Math.random() * tokens.length)]);
@@ -1159,8 +1215,8 @@ const CHAPTERS = [
       x: Math.random(),
       y: Math.random() * 1.2 - 0.2,
       seq,
-      vy: 0.00015 + Math.random() * 0.0002,
-      alpha: 0.12 + Math.random() * 0.12
+      vy: 0.00018 + Math.random() * 0.00025,
+      alpha: 0.18 + Math.random() * 0.18
     });
   }
 
@@ -1189,7 +1245,7 @@ const CHAPTERS = [
       const cy = bh.y * h + Math.sin(bh.ph * 4) * 8;
       const cell = bh.sz;
       ctx.save();
-      ctx.globalAlpha = 0.18;
+      ctx.globalAlpha = 0.32;
       ctx.font = `${cell}px "Cormorant Garamond", serif`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
@@ -1198,7 +1254,7 @@ const CHAPTERS = [
           if (heartBin[row][col] === '1'){
             const px = cx + (col - 4) * cell;
             const py = cy + (row - 3) * cell;
-            ctx.fillStyle = `hsla(${bh.hue}, 70%, 70%, ${0.4 + Math.sin(bh.ph + row + col)*0.2})`;
+            ctx.fillStyle = `hsla(${bh.hue}, 80%, 75%, ${0.55 + Math.sin(bh.ph + row + col)*0.25})`;
             ctx.fillText(Math.random() > 0.5 ? '1' : '0', px, py);
           }
         }
@@ -1695,7 +1751,7 @@ async function buildSphereWall(photosData){
   });
 
   // 显示 loader 还保留 500ms 让用户看到 100%
-  await new Promise(r => setTimeout(r, 400));
+  await new Promise(r => setTimeout(r, 1200));
 
   loader.classList.remove('show');
   setTimeout(() => loader.remove(), 500);
