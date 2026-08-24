@@ -57,13 +57,32 @@ img{-webkit-user-drag:none;user-drag:none;-webkit-touch-callout:none}
 #homeHint{
   position:fixed;left:50%;bottom:max(env(safe-area-inset-bottom),40px);
   transform:translateX(-50%);z-index:12;
-  color:rgba(255,255,255,.75);font-size:.75rem;letter-spacing:.3em;
+  color:rgba(255,255,255,.75);font-size:.72rem;letter-spacing:.3em;
   text-align:center;pointer-events:none;
   opacity:0;animation:fadeIn 1.4s ease .5s forwards;
   text-shadow:0 2px 10px rgba(0,0,0,.8);
 }
-#homeHint .arrow{display:block;font-size:1.4rem;margin-bottom:6px;animation:bob 2s ease-in-out infinite}
+#homeHint > div{margin:3px 0}
+#homeHint .arrow{display:inline-block;font-size:1.2rem;margin-right:6px;animation:bob 2s ease-in-out infinite;vertical-align:-.1em}
+#homeHint .hint2,#homeHint .hint3{font-size:.65rem;color:rgba(255,255,255,.5);letter-spacing:.4em}
 @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+
+/* 缩放控制按钮 */
+#zoomCtl{
+  position:fixed;right:14px;bottom:max(env(safe-area-inset-bottom),100px);
+  z-index:15;display:flex;flex-direction:column;gap:6px;
+  opacity:0;animation:fadeIn 1.4s ease 1s forwards;
+}
+.zoom-btn{
+  width:38px;height:38px;border-radius:50%;
+  background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.2);
+  color:#fff;font-size:1.1rem;cursor:pointer;
+  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  display:flex;align-items:center;justify-content:center;
+  transition:all .25s ease;
+}
+.zoom-btn:active{transform:scale(.92);background:rgba(255,255,255,.18)}
+.zoom-btn.reset{font-size:.7rem;letter-spacing:.05em;font-weight:500}
 #homeTitle{
   position:fixed;left:50%;top:max(env(safe-area-inset-top),30px);
   transform:translateX(-50%);z-index:12;
@@ -302,7 +321,17 @@ img{-webkit-user-drag:none;user-drag:none;-webkit-touch-callout:none}
     <div class="t1">Love Story</div>
     <div class="t2">拖动浏览 · 点击进入</div>
   </div>
-  <div id="homeHint"><span class="arrow">↻</span>拖动屏幕 · 旋 转 视 角</div>
+  <div id="homeHint">
+    <div><span class="arrow">↻</span>拖 动 · 旋 转 视 角</div>
+    <div class="hint2">双 指 · 缩 放 大 小</div>
+    <div class="hint3">点 击 · 预 览 照 片</div>
+  </div>
+
+  <div id="zoomCtl">
+    <button class="zoom-btn" id="zoomIn" title="拉近">+</button>
+    <button class="zoom-btn reset" id="zoomReset" title="重置">⟲</button>
+    <button class="zoom-btn" id="zoomOut" title="拉远">−</button>
+  </div>
 </div>
 
 <!-- ============== 章节全屏视图 ============== -->
@@ -466,8 +495,9 @@ homeEl.appendChild(homeRenderer.domElement);
 const homeScene = new THREE.Scene();
 homeScene.background = new THREE.Color(0x000000);
 
-const homeCamera = new THREE.PerspectiveCamera(85, window.innerWidth/window.innerHeight, 0.1, 1000);
-homeCamera.position.set(0,0,0.01);  // 球心
+const homeCamera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 1000);
+homeCamera.position.set(0, 0, 70);  // 球外，看向球心
+homeCamera.lookAt(0, 0, 0);
 
 // 球内壁
 const SPHERE_R = 30;
@@ -629,24 +659,51 @@ async function buildSphereWall(photosData){
   }
 }
 
-// 旋转控制（拖动 + 自动旋转）
+// 旋转控制（拖动 + 自动旋转 + 缩放）
 let rotY = 0, rotX = 0;
+let camDist = 70;  // 相机到球心距离
+const CAM_MIN = 12;   // 最近（飞入球内）
+const CAM_MAX = 100;  // 最远（看全貌）
+const CAM_DEFAULT = 70;
 let autoRotate = true;
 let lastTouchX = 0, lastTouchY = 0;
 let isDragging = false;
+let pinchStartDist = 0;
+let pinchStartCamDist = 0;
 
 function applyRotation(){
   photoGroup.rotation.y = rotY;
   photoGroup.rotation.x = rotX;
+  homeCamera.position.set(0, 0, camDist);
+  homeCamera.lookAt(0, 0, 0);
 }
 applyRotation();
 
+function getDist(a, b){
+  return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+}
+
 homeRenderer.domElement.addEventListener('touchstart', e => {
+  if (e.touches.length === 2){
+    // 双指捏合
+    isDragging = false;
+    pinchStartDist = getDist(e.touches[0], e.touches[1]);
+    pinchStartCamDist = camDist;
+    autoRotate = false;
+    return;
+  }
   isDragging = true; autoRotate = false;
   lastTouchX = e.touches[0].clientX;
   lastTouchY = e.touches[0].clientY;
 }, {passive:true});
 homeRenderer.domElement.addEventListener('touchmove', e => {
+  if (e.touches.length === 2){
+    const d = getDist(e.touches[0], e.touches[1]);
+    const ratio = pinchStartDist / d;
+    camDist = Math.max(CAM_MIN, Math.min(CAM_MAX, pinchStartCamDist * ratio));
+    applyRotation();
+    return;
+  }
   if (!isDragging) return;
   const dx = e.touches[0].clientX - lastTouchX;
   const dy = e.touches[0].clientY - lastTouchY;
@@ -659,7 +716,7 @@ homeRenderer.domElement.addEventListener('touchmove', e => {
 }, {passive:true});
 homeRenderer.domElement.addEventListener('touchend', () => { isDragging = false; });
 
-// 鼠标拖动（PC 调试）
+// 鼠标拖动（PC）
 homeRenderer.domElement.addEventListener('mousedown', e => {
   isDragging = true; autoRotate = false;
   lastTouchX = e.clientX; lastTouchY = e.clientY;
@@ -676,6 +733,14 @@ homeRenderer.domElement.addEventListener('mousemove', e => {
 });
 homeRenderer.domElement.addEventListener('mouseup', () => isDragging = false);
 homeRenderer.domElement.addEventListener('mouseleave', () => isDragging = false);
+
+// 鼠标滚轮缩放（PC）
+homeRenderer.domElement.addEventListener('wheel', e => {
+  e.preventDefault();
+  camDist = Math.max(CAM_MIN, Math.min(CAM_MAX, camDist + e.deltaY * 0.05));
+  autoRotate = false;
+  applyRotation();
+}, {passive:false});
 
 // 点击照片 - 打开预览大图
 const raycaster = new THREE.Raycaster();
@@ -737,20 +802,18 @@ function animateHome(){
 
   const now = performance.now();
   photoMeshes.forEach((p, i) => {
-    // 入场缩放（一次性，0.6s 从 0 长到 1）
     if (!photoEnterStart.has(p.mesh)){
       photoEnterStart.set(p.mesh, now);
     }
     const enterT = Math.min(1, (now - photoEnterStart.get(p.mesh)) / 600);
-    const enterScale = enterT < 1 ? (1 - Math.pow(1 - enterT, 3)) : 1;  // easeOutCubic
+    const enterScale = enterT < 1 ? (1 - Math.pow(1 - enterT, 3)) : 1;
 
-    // 高亮缩放
-    const isHi = (i === bestIdx && bestZ > 5);
+    // 高亮条件：相机远时（camDist > 40）所有照片同等显示；相机近时高亮正前方
+    const isHi = (i === bestIdx && bestZ > 5 && camDist < 40);
     const targetScale = isHi ? 1.15 : 1.0;
     const cur = p.mesh.scale.x;
     const highlightScale = cur + (targetScale - cur) * 0.1;
 
-    // 取较小值（如果还在入场就不放大）
     const finalScale = enterT < 1 ? enterScale : highlightScale;
     p.mesh.scale.set(finalScale, finalScale, 1);
   });
@@ -759,6 +822,28 @@ function animateHome(){
   requestAnimationFrame(animateHome);
 }
 animateHome();
+
+// 缩放按钮
+document.getElementById('zoomIn').addEventListener('click', () => {
+  camDist = Math.max(CAM_MIN, camDist - 12);
+  autoRotate = false;
+  applyRotation();
+});
+document.getElementById('zoomOut').addEventListener('click', () => {
+  camDist = Math.min(CAM_MAX, camDist + 12);
+  autoRotate = false;
+  applyRotation();
+});
+document.getElementById('zoomReset').addEventListener('click', () => {
+  rotY = 0; rotX = 0; camDist = CAM_DEFAULT; autoRotate = true;
+  applyRotation();
+});
+
+// 双击屏幕重置（PC 调试）
+homeRenderer.domElement.addEventListener('dblclick', () => {
+  rotY = 0; rotX = 0; camDist = CAM_DEFAULT; autoRotate = true;
+  applyRotation();
+});
 
 window.addEventListener('resize', () => {
   homeRenderer.setSize(window.innerWidth, window.innerHeight);
