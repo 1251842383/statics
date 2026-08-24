@@ -272,6 +272,95 @@ img{-webkit-user-drag:none;user-drag:none;-webkit-touch-callout:none}
 /* 封面特殊样式 */
 .viewer-slide.cover{background:radial-gradient(ellipse at center,#1a0e2a 0%,#08040e 100%)}
 .viewer-slide.cover img{display:none}
+
+/* ============================================================ */
+/* 每章文案专属动画（结合章节特点）                              */
+/* ============================================================ */
+/* 默认（基础）已在上面 .scene-text 定义；这里只覆盖各章特殊样式 */
+
+/* ch01 在那之前 —— 字符如星辰逐个亮起 */
+.scene.ch01 .scene-text{
+  background:linear-gradient(90deg,#f8e8d4,#fff,#f8e8d4);
+  background-size:200% 100%;
+  -webkit-background-clip:text;
+  background-clip:text;
+  color:transparent;
+  animation:sceneTextIn 1s ease .6s forwards, ch01Twinkle 4s linear 1.6s infinite;
+}
+@keyframes ch01Twinkle{
+  0%,100%{background-position:0% 50%}
+  50%{background-position:100% 50%}
+}
+
+/* ch02 峨眉雪 —— 文字如雪花飘落（轻微模糊下落） */
+.scene.ch02 .scene-text{
+  animation:sceneTextIn 1s ease .6s forwards, ch02Snow 6s ease-in-out 1.6s infinite;
+}
+@keyframes ch02Snow{
+  0%,100%{text-shadow:0 0 0 rgba(255,255,255,0), 0 2px 16px rgba(0,0,0,.9)}
+  50%{text-shadow:0 -2px 0 rgba(255,255,255,.4), 0 0 12px rgba(180,220,255,.4), 0 2px 16px rgba(0,0,0,.9)}
+}
+
+/* ch03 山城之夜 —— 文字像灯笼般明灭 */
+.scene.ch03 .scene-text{
+  animation:sceneTextIn 1s ease .6s forwards, ch03Lantern 2.5s ease-in-out 1.6s infinite;
+}
+@keyframes ch03Lantern{
+  0%,100%{text-shadow:0 0 8px rgba(255,180,80,.5), 0 0 16px rgba(255,140,60,.3), 0 2px 16px rgba(0,0,0,.9)}
+  50%{text-shadow:0 0 14px rgba(255,200,100,.8), 0 0 28px rgba(255,160,80,.5), 0 2px 16px rgba(0,0,0,.9)}
+}
+
+/* ch04 北海海风 —— 文字像波浪轻晃 */
+.scene.ch04 .scene-text{
+  animation:sceneTextIn 1s ease .6s forwards, ch04Wave 5s ease-in-out 1.6s infinite;
+}
+@keyframes ch04Wave{
+  0%,100%{transform:translateY(0) skewX(0)}
+  25%{transform:translateY(-1px) skewX(.5deg)}
+  75%{transform:translateY(1px) skewX(-.5deg)}
+}
+
+/* ch05 那年毕业 —— 文字像花瓣飘入（轻浮上移） */
+.scene.ch05 .scene-text{
+  animation:sceneTextIn 1.4s ease .6s forwards, ch05Petal 4s ease-in-out 2s infinite;
+}
+@keyframes ch05Petal{
+  0%,100%{transform:translateY(0) rotate(0)}
+  33%{transform:translateY(-3px) rotate(.3deg)}
+  66%{transform:translateY(2px) rotate(-.3deg)}
+}
+
+/* ch06 在一起 —— 文字带温暖光晕 */
+.scene.ch06 .scene-text{
+  animation:sceneTextIn 1s ease .6s forwards, ch06Bokeh 4s ease-in-out 1.6s infinite;
+}
+@keyframes ch06Bokeh{
+  0%,100%{text-shadow:0 0 8px rgba(255,180,100,.3), 0 2px 16px rgba(0,0,0,.9); color:rgba(255,245,235,.92)}
+  50%{text-shadow:0 0 18px rgba(255,200,120,.6), 0 0 32px rgba(255,180,140,.3), 0 2px 16px rgba(0,0,0,.9); color:rgba(255,250,230,1)}
+}
+
+/* ch07 我们结婚了 —— 文字如玫瑰金光闪烁 */
+.scene.ch07 .scene-text{
+  background:linear-gradient(120deg,#ffd4dc 0%,#fff 30%,#ffb0c4 60%,#fff 100%);
+  background-size:200% 100%;
+  -webkit-background-clip:text;
+  background-clip:text;
+  color:transparent;
+  animation:sceneTextIn 1s ease .6s forwards, ch07Rose 5s linear 1.6s infinite;
+}
+@keyframes ch07Rose{
+  0%{background-position:200% 50%}
+  100%{background-position:-200% 50%}
+}
+
+/* ch11 柯柯来了 —— 文字像气泡轻柔浮动 */
+.scene.ch11 .scene-text{
+  animation:sceneTextIn 1s ease .6s forwards, ch11Bubble 3s ease-in-out 1.6s infinite;
+}
+@keyframes ch11Bubble{
+  0%,100%{transform:translateY(0) scale(1); text-shadow:0 0 8px rgba(255,200,220,.3), 0 2px 16px rgba(0,0,0,.9)}
+  50%{transform:translateY(-2px) scale(1.01); text-shadow:0 0 16px rgba(255,200,220,.5), 0 2px 16px rgba(0,0,0,.9)}
+}
 .cover-content{text-align:center;color:#fff;padding:0 30px;z-index:3}
 .cover-content .deco{font-family:"Cormorant Garamond",serif;font-style:italic;font-size:.8rem;letter-spacing:.5em;color:rgba(248,232,212,.5);margin-bottom:18px}
 .cover-content .title{font-family:"Dancing Script",serif;font-size:clamp(3.2rem,13vw,5.5rem);font-weight:400;letter-spacing:.05em;text-shadow:0 0 40px rgba(255,180,200,.5);margin-bottom:12px;line-height:1.1}
@@ -687,6 +776,106 @@ img{-webkit-user-drag:none;user-drag:none;-webkit-touch-callout:none}
   border:1px solid currentColor;border-radius:50%;position:relative}
 .scene-hint .ico::before{content:'';position:absolute;inset:3px;
   background:currentColor;border-radius:50%;opacity:.5}
+
+/* ============================================================ */
+/* 视频章节 —— 胶片条 + 播放器弹窗                                */
+/* ============================================================ */
+.filmstrip{
+  display:flex;gap:14px;
+  width:100%;height:100%;
+  padding:20px 24px;
+  overflow-x:auto;overflow-y:hidden;
+  scroll-snap-type:x mandatory;
+  -webkit-overflow-scrolling:touch;
+  mask-image:linear-gradient(90deg,transparent 0,#000 8%,#000 92%,transparent 100%);
+  -webkit-mask-image:linear-gradient(90deg,transparent 0,#000 8%,#000 92%,transparent 100%);
+}
+.filmstrip::-webkit-scrollbar{display:none}
+.film-card{
+  flex:0 0 auto;
+  width:62vw;max-width:260px;
+  scroll-snap-align:center;
+  cursor:pointer;
+  transition:transform .3s ease;
+  display:flex;flex-direction:column;align-items:center;gap:6px;
+}
+.film-card:active{transform:scale(.96)}
+.film-frame{
+  position:relative;
+  width:100%;aspect-ratio:16/9;
+  background:#000;
+  border-radius:4px;overflow:hidden;
+  box-shadow:0 8px 28px rgba(0,0,0,.6);
+  border:2px solid #1a1a1a;
+}
+.film-frame video{
+  width:100%;height:100%;object-fit:cover;
+  background:#000;
+}
+.film-play{
+  position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  width:54px;height:54px;border-radius:50%;
+  background:rgba(255,255,255,.15);
+  border:1.5px solid rgba(255,255,255,.7);
+  display:flex;align-items:center;justify-content:center;
+  font-size:1.2rem;color:#fff;
+  text-shadow:0 0 10px rgba(0,0,0,.5);
+  backdrop-filter:blur(4px);
+  transition:transform .25s ease, background .25s ease;
+  pointer-events:none;
+}
+.film-card:hover .film-play{transform:translate(-50%,-50%) scale(1.12);background:rgba(255,255,255,.25)}
+.film-grain{
+  position:absolute;inset:0;pointer-events:none;
+  background:repeating-linear-gradient(0deg,rgba(255,255,255,.04) 0 1px,transparent 1px 3px),
+             repeating-linear-gradient(90deg,rgba(0,0,0,.06) 0 1px,transparent 1px 3px);
+  mix-blend-mode:overlay;
+}
+.film-num{
+  font-family:"Cormorant Garamond",serif;font-style:italic;
+  font-size:.75rem;letter-spacing:.3em;color:rgba(248,232,212,.55);
+}
+.film-num::before,.film-num::after{content:'—';margin:0 4px;color:rgba(248,232,212,.3)}
+
+/* 视频播放器弹窗 */
+.video-overlay{
+  position:fixed;inset:0;z-index:200;
+  background:rgba(0,0,0,.92);
+  display:flex;align-items:center;justify-content:center;
+  animation:fadeIn .3s ease;
+}
+.video-overlay video{
+  width:96vw;max-height:80vh;object-fit:contain;
+  background:#000;
+  border-radius:6px;
+  box-shadow:0 20px 60px rgba(0,0,0,.8);
+}
+.video-close{
+  position:absolute;top:max(env(safe-area-inset-top),16px);right:16px;
+  width:42px;height:42px;border-radius:50%;
+  background:rgba(255,255,255,.15);
+  border:1px solid rgba(255,255,255,.3);
+  color:#fff;font-size:1.6rem;
+  cursor:pointer;backdrop-filter:blur(8px);
+  display:flex;align-items:center;justify-content:center;
+}
+.video-info{
+  position:absolute;bottom:max(env(safe-area-inset-bottom),24px);
+  left:50%;transform:translateX(-50%);
+  font-family:"Cormorant Garamond",serif;font-style:italic;
+  font-size:.8rem;letter-spacing:.3em;color:rgba(255,255,255,.6);
+}
+
+/* ch14 章节背景：复古电影感 */
+.scene.ch14 .scene-bg{
+  background:radial-gradient(ellipse at center,#2a1a14 0%,#15080a 60%,#000 100%);
+}
+.scene.ch14 .scene-deco::before{
+  content:'';position:absolute;inset:0;
+  background:
+    radial-gradient(circle at 20% 30%,rgba(255,200,140,.06) 0%,transparent 40%),
+    radial-gradient(circle at 80% 70%,rgba(255,180,100,.04) 0%,transparent 40%);
+}
 </style>
 </head>
 <body>
@@ -705,9 +894,32 @@ img{-webkit-user-drag:none;user-drag:none;-webkit-touch-callout:none}
 
 <!-- ============== 加载进度 ============== -->
 <div id="loader">
-  <div class="loader-text">正在加载回忆</div>
-  <div class="loader-bar"><div class="loader-fill" id="loaderFill"></div></div>
-  <div class="loader-pct" id="loaderPct">0%</div>
+  <canvas class="loader-fx" id="loaderFx"></canvas>
+  <div class="loader-inner">
+    <div class="loader-heart">♥</div>
+    <div class="loader-text">正 在 加 载 回 忆</div>
+    <div class="loader-quote" id="loaderQuote"></div>
+    <div class="loader-rng">
+      <svg viewBox="0 0 120 120">
+        <defs>
+          <linearGradient id="loaderGrad" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#ff8eb3"/>
+            <stop offset="100%" stop-color="#c8a2ff"/>
+          </linearGradient>
+        </defs>
+        <circle class="track" cx="60" cy="60" r="54"/>
+        <circle class="fill" id="loaderRing" cx="60" cy="60" r="54"/>
+      </svg>
+      <div class="loader-rng-pct">
+        <div class="num" id="loaderPct">0</div>
+        <div class="label">%</div>
+      </div>
+    </div>
+    <div class="loader-count"><b id="loaderCount">0</b> / <span id="loaderTotal">117</span></div>
+    <div class="loader-thumbs">
+      <div class="loader-thumbs-track" id="loaderThumbs"></div>
+    </div>
+  </div>
 </div>
 
 <!-- ============== 3D 球面首页 ============== -->
@@ -784,6 +996,8 @@ const CHAPTERS = [
     text:'当你说"我愿意"的那一刻\n时间好像停止了\n从今往后，无论贫穷富有\n我都陪着你，直到永远' },
   { id:'ch11', title:'柯柯来了', en:'KOKO ARRIVED', folder:'chapter-11-baby', bg:'bg-images/11-baby.jpg', effect:'bubble',
     text:'小小的你来到这个世界\n哭声那么响，眼睛那么亮\n我们的二人世界变成了三口之家\n从此多了一份软绵绵的牵挂' },
+  { id:'ch14', title:'时光影片', en:'TIME FILMS', folder:'chapter-14-video', bg:'bg-images/14-video.jpg', effect:'film',
+    text:'我们拍过的那些短片\n把每一个值得纪念的瞬间都留下来\n按下播放键，回到那一刻', isVideo:true },
   { id:'wish', title:'下一个十年', en:'NEXT TEN YEARS', folder:null, bg:null, effect:'heart',
     text:'愿我们继续牵着彼此的手，看更多的山海，走更远的路。\n愿我们的小家永远充满笑声，愿柯柯健康快乐地长大。\n愿十年后、二十年后、五十年后，你仍是我最想见的那个人。',
     isWish:true, photo:null }
@@ -857,6 +1071,179 @@ const CHAPTERS = [
     requestAnimationFrame(draw);
   }
   draw();
+})();
+
+// ============================================================
+// 1.4 加载页特效：星空 + Binary 心 + 代码雨 + 文案轮播
+// ============================================================
+(() => {
+  const c = document.getElementById('loaderFx');
+  if (!c) return;
+  const ctx = c.getContext('2d');
+  const dpr = Math.min(window.devicePixelRatio, 2);
+  let W, H;
+  function resize(){
+    W = c.width = window.innerWidth * dpr;
+    H = c.height = window.innerHeight * dpr;
+    c.style.width = window.innerWidth + 'px';
+    c.style.height = window.innerHeight + 'px';
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  // 编程式浪漫字符池
+  const tokens = ['0', '1', '♥', '<3', '∞', 'function love(){return "you"}',
+                  '01001000', 'while(true){love("you")}',
+                  'const us = ∞;', '1011', '01110', '// 1314',
+                  'import love', '1+1=2', 'commit -m "love"'];
+
+  // 二进制心形点阵（5x7）
+  const heartBin = [
+    '01100110',
+    '11111111',
+    '11111111',
+    '01111110',
+    '00111100',
+    '00011000',
+    '00000000'
+  ];
+
+  // 程序员的浪漫
+  const quotes = [
+    '// compiled with love ♥',
+    '01001001 00100000 01101100 01101111 01110110 01100101 00100000 01111001 01101111 01110101',
+    'while (alive) { love("you"); }',
+    'function forever() { return "与你"; }',
+    '// 一生一世 = 1314',
+    'const us = [相遇, 相爱, 永远];',
+    'try { forever } catch (永远) { continue; }',
+    '# 始于初见，止于终老'
+  ];
+  const quoteEl = document.getElementById('loaderQuote');
+  let quoteIdx = 0;
+  function showQuote(){
+    if (!quoteEl) return;
+    quoteEl.classList.add('fade');
+    setTimeout(() => {
+      quoteEl.textContent = quotes[quoteIdx];
+      quoteEl.classList.remove('fade');
+      quoteIdx = (quoteIdx + 1) % quotes.length;
+    }, 400);
+  }
+  showQuote();
+  setInterval(showQuote, 3200);
+
+  // 星空粒子
+  const stars = [];
+  for (let i = 0; i < 60; i++){
+    stars.push({
+      x: Math.random(),
+      y: Math.random(),
+      sz: 0.4 + Math.random() * 1.0,
+      alpha: 0.3 + Math.random() * 0.4,
+      sp: 0.0008 + Math.random() * 0.0012,
+      ph: Math.random() * Math.PI * 2
+    });
+  }
+
+  // 代码雨（缓慢下落的小段代码）
+  const codeDrops = [];
+  const TOKEN_PER_DROP = 8;
+  for (let i = 0; i < 14; i++){
+    const seq = [];
+    for (let k = 0; k < TOKEN_PER_DROP; k++){
+      seq.push(tokens[Math.floor(Math.random() * tokens.length)]);
+    }
+    codeDrops.push({
+      x: Math.random(),
+      y: Math.random() * 1.2 - 0.2,
+      seq,
+      vy: 0.00015 + Math.random() * 0.0002,
+      alpha: 0.12 + Math.random() * 0.12
+    });
+  }
+
+  // 大型漂浮 Binary 心（缓慢旋转上升）
+  const bigHearts = [];
+  for (let i = 0; i < 3; i++){
+    bigHearts.push({
+      x: 0.2 + Math.random() * 0.6,
+      y: 0.3 + Math.random() * 0.5,
+      sz: 6 + Math.random() * 4,
+      hue: 330 + Math.random() * 30,
+      ph: Math.random() * Math.PI * 2
+    });
+  }
+
+  function draw(t){
+    const w = window.innerWidth, h = window.innerHeight;
+    // 极淡填充（让前面的元素露出来）
+    ctx.fillStyle = 'rgba(8, 4, 18, 0.35)';
+    ctx.fillRect(0, 0, w, h);
+
+    // 1. 大型 Binary 心（轮廓）
+    bigHearts.forEach(bh => {
+      bh.ph += 0.0008;
+      const cx = bh.x * w;
+      const cy = bh.y * h + Math.sin(bh.ph * 4) * 8;
+      const cell = bh.sz;
+      ctx.save();
+      ctx.globalAlpha = 0.18;
+      ctx.font = `${cell}px "Cormorant Garamond", serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      for (let row = 0; row < heartBin.length; row++){
+        for (let col = 0; col < 8; col++){
+          if (heartBin[row][col] === '1'){
+            const px = cx + (col - 4) * cell;
+            const py = cy + (row - 3) * cell;
+            ctx.fillStyle = `hsla(${bh.hue}, 70%, 70%, ${0.4 + Math.sin(bh.ph + row + col)*0.2})`;
+            ctx.fillText(Math.random() > 0.5 ? '1' : '0', px, py);
+          }
+        }
+      }
+      ctx.restore();
+    });
+
+    // 2. 代码雨（淡色块状）
+    ctx.save();
+    ctx.font = '11px "Courier New", monospace';
+    ctx.textBaseline = 'top';
+    codeDrops.forEach(d => {
+      d.y += d.vy;
+      if (d.y > 1.2){ d.y = -0.2; d.x = Math.random(); }
+      d.seq.forEach((tk, k) => {
+        const yy = d.y * h + k * 14;
+        if (yy < 0 || yy > h) return;
+        const fade = k === d.seq.length - 1 ? 0.6 : (k === 0 ? 0.05 : d.alpha);
+        ctx.fillStyle = k === d.seq.length - 1
+          ? `hsla(330, 80%, 80%, ${fade})`
+          : `hsla(${280 + k * 5}, 50%, 65%, ${fade})`;
+        ctx.fillText(tk, d.x * w, yy);
+      });
+    });
+    ctx.restore();
+
+    // 3. 星空闪烁
+    stars.forEach(s => {
+      const tw = 0.5 + 0.5 * Math.sin(t * s.sp + s.ph);
+      ctx.fillStyle = `hsla(280, 60%, 85%, ${s.alpha * tw})`;
+      ctx.beginPath();
+      ctx.arc(s.x * w, s.y * h, s.sz, 0, Math.PI * 2);
+      ctx.fill();
+    });
+
+    requestAnimationFrame(draw);
+  }
+  requestAnimationFrame(draw);
+
+  // 彩蛋：F12 控制台
+  console.log('%c♥ Compiled with love ♥', 'color:#ff8eb3;font-size:18px;font-weight:bold;text-shadow:0 0 10px #ff8eb3;');
+  console.log('%cfor (let i = 0; i < ∞; i++) { love("you"); }', 'color:#c8a2ff;font-size:14px;font-style:italic;');
+  console.log('%c// 1314 = 一生一世', 'color:#ffb0c4;font-size:12px;');
+  console.log('%c>>> echo " forever & always"', 'color:#88c0ff;font-size:12px;');
+  console.log('%c  —— 给最爱的人', 'color:#ffd0e0;font-size:11px;');
 })();
 
 // ============================================================
@@ -1221,13 +1608,20 @@ async function buildSphereWall(photosData){
   });
 
   const loader = document.getElementById('loader');
-  const loaderFill = document.getElementById('loaderFill');
+  const loaderRing = document.getElementById('loaderRing');
   const loaderPct = document.getElementById('loaderPct');
+  const loaderCount = document.getElementById('loaderCount');
+  const loaderTotal = document.getElementById('loaderTotal');
+  const loaderThumbs = document.getElementById('loaderThumbs');
   loader.classList.add('show');
+  loaderTotal.textContent = allItems.length;
 
   // 用 Fibonacci 球面分布一次性占完所有位置
   const totalPositions = allItems.length;
   const allPositions = fibonacciSphere(totalPositions, SPHERE_R - 2.5);
+
+  // 缩略图条：滚动到底，保证最新缩略图可见
+  const RING_CIRCUM = 339.292;  // 2π * 54
 
   function loadOne(item, idx){
     return new Promise(resolve => {
@@ -1237,9 +1631,9 @@ async function buildSphereWall(photosData){
         const tex = new THREE.Texture(img);
         tex.colorSpace = THREE.SRGBColorSpace;
         tex.needsUpdate = true;
-        resolve({ item, tex, idx, ok:true });
+        resolve({ item, tex, idx, ok:true, thumbImg: img });
       };
-      img.onerror = () => resolve({ item, tex:null, idx, ok:false });
+      img.onerror = () => resolve({ item, tex:null, idx, ok:false, thumbImg: null });
       img.src = item.thumbSrc;
     });
   }
@@ -1271,8 +1665,23 @@ async function buildSphereWall(photosData){
     loadOne(item, idx).then(result => {
       loadedCount++;
       const pct = Math.floor(loadedCount / totalCount * 100);
-      loaderFill.style.width = pct + '%';
-      loaderPct.textContent = pct + '%';
+      // 更新 SVG ring
+      const offset = RING_CIRCUM * (1 - pct/100);
+      if (loaderRing) loaderRing.style.strokeDashoffset = offset;
+      // 更新数字 + 计数器
+      if (loaderPct) loaderPct.textContent = pct;
+      if (loaderCount) loaderCount.textContent = loadedCount;
+      // 添加缩略图到条带
+      if (loaderThumbs && result.thumbImg){
+        const t = document.createElement('div');
+        t.className = 'loader-thumb';
+        t.style.backgroundImage = `url(${item.thumbSrc})`;
+        loaderThumbs.appendChild(t);
+        // 触发进入动画
+        requestAnimationFrame(() => t.classList.add('show'));
+        // 横向滚动使最新缩略图可见
+        loaderThumbs.scrollLeft = loaderThumbs.scrollWidth;
+      }
       return result;
     })
   );
@@ -1724,10 +2133,11 @@ async function openChapter(idx){
   viewerPhotos = [];
   if (ch.folder){
     const data = await loadPhotosData();
-    const arr = data[ch.folder]?.original || [];
+    const entry = data[ch.folder];
+    const arr = Array.isArray(entry) ? entry : (entry?.original || []);
     arr.forEach(p => viewerPhotos.push(`${ch.folder}/${p}`));
   }
-  if (!viewerPhotos.length && ch.folder){
+  if (!viewerPhotos.length && ch.folder && !ch.isVideo){
     const fromSphere = photoMeshes.filter(p => p.chapterIdx === idx).map(p => p.src);
     viewerPhotos = fromSphere;
   }
@@ -1736,6 +2146,7 @@ async function openChapter(idx){
   const n = viewerPhotos.length;
   if (ch.isCover) viewerMode = 'cover';
   else if (ch.isWish) viewerMode = 'wish';
+  else if (ch.isVideo) viewerMode = 'filmstrip';
   else if (n <= 5) viewerMode = 'book';
   else if (n <= 15) viewerMode = 'flow';
   else viewerMode = 'stack';
@@ -1763,6 +2174,20 @@ function buildViewerDots(){
 // 场景渲染（每章专属氛围 + 3D 相册）
 // ============================================================
 let autoAdvTimer = null;
+// 预加载图片缓存
+const _imgCache = new Map();
+function preloadImage(url){
+  if (_imgCache.has(url)) return _imgCache.get(url);
+  const p = new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => resolve(true);
+    img.onerror = () => resolve(false);
+    img.src = url;
+  });
+  _imgCache.set(url, p);
+  return p;
+}
+
 function clearAutoAdvance(){
   if (autoAdvTimer) { clearTimeout(autoAdvTimer); autoAdvTimer = null; }
 }
@@ -1771,8 +2196,18 @@ function startAutoAdvance(scene){
   if (viewerPhotos.length <= 1) return;  // 单张无需自动切换
   // 根据模式不同时间略不同
   const interval = viewerMode === 'book' ? 5000 : (viewerMode === 'stack' ? 3200 : 4000);
-  autoAdvTimer = setTimeout(() => {
+  autoAdvTimer = setTimeout(async () => {
     if (!scene.isConnected) return;
+    // 计算下一张的索引
+    const total = viewerPhotos.length;
+    const nextIdx = (viewerPhotoIdx + 1) % total;
+    // 等待下一张图片加载完成（最多等 3 秒超时）
+    await Promise.race([
+      preloadImage(viewerPhotos[nextIdx]),
+      new Promise(r => setTimeout(r, 3000))
+    ]);
+    if (!scene.isConnected) return;
+    // 触发切换
     if (viewerMode === 'book' && scene._book){
       bookFlip(scene._book, 'next');
     } else if (viewerMode === 'flow' && scene._flow){
@@ -1817,20 +2252,72 @@ function renderChapterScene(){
     <div class="scene-counter">${viewerPhotoIdx + 1} / ${viewerPhotos.length}</div>
     <div class="scene-hint">
       <span><span class="ico"></span>左 右 · 翻 章</span>
-      <span><span class="ico"></span>上 下 · 换 照</span>
+      ${viewerMode === 'filmstrip'
+        ? '<span><span class="ico"></span>点 击 · 播 放</span>'
+        : '<span><span class="ico"></span>上 下 · 换 照</span>'}
     </div>`;
   viewerStage.appendChild(scene);
 
   // 渲染 3D 相册
   if (viewerMode === 'book') renderBook(scene);
   else if (viewerMode === 'flow') renderFlow(scene);
-  else renderStack(scene);
+  else if (viewerMode === 'stack') renderStack(scene);
+  else if (viewerMode === 'filmstrip') renderFilmstrip(scene);
 
   // 启动章节特效
   startChapterFx(scene, ch);
 
-  // 启动自动切换
-  startAutoAdvance(scene);
+  // 启动自动切换（视频章节不自动）
+  if (viewerMode !== 'filmstrip') startAutoAdvance(scene);
+}
+
+// 视频胶片章 —— 横向胶片条 + 点击播放
+function renderFilmstrip(scene){
+  const frame = scene.querySelector('#sceneFrame');
+  frame.style.height = '70vh';
+  frame.style.flexDirection = 'column';
+
+  const strip = document.createElement('div');
+  strip.className = 'filmstrip';
+  frame.appendChild(strip);
+
+  viewerPhotos.forEach((url, i) => {
+    const card = document.createElement('div');
+    card.className = 'film-card';
+    card.innerHTML = `
+      <div class="film-frame">
+        <video src="${url}" preload="metadata" muted playsinline></video>
+        <div class="film-play">▶</div>
+        <div class="film-grain"></div>
+      </div>
+      <div class="film-num">No.${String(i+1).padStart(2,'0')}</div>
+    `;
+    card.addEventListener('click', () => openVideoPlayer(url, i));
+    strip.appendChild(card);
+  });
+
+  scene._filmstrip = strip;
+}
+
+function openVideoPlayer(url, idx){
+  // 创建全屏播放器
+  const overlay = document.createElement('div');
+  overlay.className = 'video-overlay';
+  overlay.innerHTML = `
+    <button class="video-close">×</button>
+    <video src="${url}" controls autoplay playsinline></video>
+    <div class="video-info">No.${String(idx+1).padStart(2,'0')} · ${viewerPhotos.length}</div>
+  `;
+  document.body.appendChild(overlay);
+  const close = () => {
+    const v = overlay.querySelector('video');
+    if (v) v.pause();
+    overlay.remove();
+  };
+  overlay.querySelector('.video-close').addEventListener('click', close);
+  overlay.addEventListener('click', e => {
+    if (e.target === overlay) close();
+  });
 }
 
 // 3D 相册：book —— 翻页效果
@@ -2066,6 +2553,11 @@ function startChapterFx(scene, ch){
     for (let i=0;i<22;i++) state.particles.push({x:Math.random(),y:Math.random(),r:rand(10,26),ph:rand(0,6.28),col:`hsl(${rand(20,40)},80%,70%)`});
   } else if (fx === 'heart'){
     for (let i=0;i<16;i++) state.particles.push({x:Math.random(),y:rand(.5,1),vy:rand(-.0008,-.0003),sz:rand(8,16),ph:rand(0,6.28)});
+  } else if (fx === 'film'){
+    // 浮尘 + 偶尔的胶片划痕
+    for (let i=0;i<25;i++) state.particles.push({x:Math.random(),y:Math.random(),r:rand(.6,1.5),vy:rand(-.0003,-.0001),vx:rand(-.0001,.0001),ph:rand(0,6.28),a:rand(.3,.7)});
+    state.scratches = [];
+    state.scratchTimer = 0;
   }
 
   const loop = t => {
@@ -2194,6 +2686,35 @@ function startChapterFx(scene, ch){
         ctx2.fill();
         ctx2.restore();
       });
+    } else if (fx === 'film'){
+      const tt=t*.001;
+      // 浮尘
+      state.particles.forEach(p => {
+        p.y += p.vy; p.x += p.vx + Math.sin(tt*.5+p.ph)*.0002;
+        if (p.y<-.05){p.y=1.05;p.x=Math.random();}
+        if (p.x<0)p.x=1;if(p.x>1)p.x=0;
+        ctx2.fillStyle=`rgba(255,230,180,${p.a})`;
+        ctx2.beginPath();ctx2.arc(p.x*w,p.y*h,p.r,0,Math.PI*2);ctx2.fill();
+      });
+      // 胶片划痕（偶发横线闪烁）
+      state.scratchTimer -= 16;
+      if (state.scratchTimer <= 0 && Math.random() < 0.05){
+        state.scratches.push({y: Math.random()*h, life: 8+Math.random()*12, x: 0, speed: 1+Math.random()*2});
+        state.scratchTimer = 800 + Math.random()*1500;
+      }
+      ctx2.strokeStyle = 'rgba(255,240,200,.5)';
+      ctx2.lineWidth = 1;
+      state.scratches = state.scratches.filter(s => s.life > 0);
+      state.scratches.forEach(s => {
+        s.x = (s.x + s.speed) % w;
+        s.life -= 1;
+        ctx2.globalAlpha = Math.min(1, s.life / 12);
+        ctx2.beginPath();
+        ctx2.moveTo(s.x, s.y);
+        ctx2.lineTo(s.x + 30, s.y + (Math.random()-0.5)*4);
+        ctx2.stroke();
+      });
+      ctx2.globalAlpha = 1;
     }
 
     requestAnimationFrame(loop);
@@ -2336,17 +2857,84 @@ const BGMS = {
       ['F3','A3','C4'],['F3','A3','C4'],['Bb3','D4','F4'],['Bb3','D4','F4'],
       ['C4','E4','G4'],['F3','A3','C4'],['Gm3','D4','G4'],['F3','A3','C4']
     ]
+  },
+  snow: {  // 峨眉雪 —— Ab 大调 ~62 BPM，晶莹纯静
+    tempo: 62, type:'sine', vol:.085, bassVol:.04, padVol:.022,
+    melody: [
+      {n:'Eb5',d:1.5},{n:'G5',d:.5},{n:'Ab5',d:2},
+      {n:'G5',d:1},{n:'F5',d:1},{n:'Eb5',d:2},
+      {n:'Bb5',d:1.5},{n:'Ab5',d:.5},{n:'G5',d:2},
+      {n:'F5',d:1},{n:'Eb5',d:1},{n:'F5',d:2},
+      {n:'Eb5',d:2},{n:'D5',d:2},
+      {n:'Eb5',d:1.5},{n:'G5',d:.5},{n:'Ab5',d:2.5}
+    ],
+    chords: [
+      ['Ab3','Eb4','Ab4'],['Ab3','Eb4','Ab4'],['Bb3','F4','Bb4'],['Bb3','F4','Bb4'],
+      ['Eb3','Bb3','Eb4'],['Eb3','Bb3','Eb4'],['F3','C4','F4'],['Ab3','Eb4','Ab4']
+    ]
+  },
+  wave: {  // 北海海风 —— D 大调 ~66 BPM，舒展流动
+    tempo: 66, type:'triangle', vol:.09, bassVol:.045, padVol:.024,
+    melody: [
+      {n:'D5',d:1.5},{n:'F5',d:.5},{n:'A5',d:2},
+      {n:'G5',d:1},{n:'F5',d:1},{n:'E5',d:2},
+      {n:'D5',d:2},{n:'E5',d:1.5},{n:'Fs5',d:.5},
+      {n:'A5',d:2},{n:'G5',d:1},{n:'F5',d:1},
+      {n:'E5',d:2},{n:'D5',d:1.5},{n:'F5',d:.5},
+      {n:'A5',d:2.5}
+    ],
+    chords: [
+      ['D3','A3','D4'],['D3','A3','D4'],['G3','D4','G4'],['G3','D4','G4'],
+      ['A3','E4','A4'],['A3','E4','A4'],['Bm3','Fs4','B4'],['D3','A3','D4']
+    ]
+  },
+  grad: {  // 那年毕业 —— G 大调 ~92 BPM，明亮欢快
+    tempo: 92, type:'triangle', vol:.095, bassVol:.045, padVol:.025,
+    melody: [
+      {n:'G5',d:.5},{n:'B5',d:.5},{n:'D6',d:1},{n:'B5',d:.5},{n:'A5',d:.5},
+      {n:'G5',d:1},{n:'E5',d:1},
+      {n:'A5',d:.5},{n:'B5',d:.5},{n:'D6',d:1},{n:'C6',d:.5},{n:'B5',d:.5},
+      {n:'A5',d:1},{n:'G5',d:1},
+      {n:'D6',d:1},{n:'B5',d:.5},{n:'A5',d:.5},{n:'G5',d:1.5},
+      {n:'B5',d:.5},{n:'A5',d:1},
+      {n:'G5',d:2}
+    ],
+    chords: [
+      ['G3','D4','G4'],['G3','D4','G4'],['C4','E4','G4'],['C4','E4','G4'],
+      ['D4','Fs4','A4'],['D4','Fs4','A4'],['E4','B4','E5'],['G3','D4','G4']
+    ]
+  },
+  wedding: {  // 我们结婚了 —— C 大调 ~74 BPM，庄严浪漫
+    tempo: 74, type:'sine', vol:.10, bassVol:.05, padVol:.03,
+    melody: [
+      {n:'G5',d:1.5},{n:'E5',d:.5},{n:'G5',d:2},
+      {n:'A5',d:1},{n:'G5',d:1},{n:'F5',d:2},
+      {n:'E5',d:1.5},{n:'G5',d:.5},{n:'C6',d:2},
+      {n:'B5',d:1},{n:'A5',d:1},{n:'G5',d:2},
+      {n:'F5',d:1},{n:'E5',d:1},{n:'D5',d:2},
+      {n:'G5',d:1},{n:'E5',d:1},{n:'C5',d:2.5}
+    ],
+    chords: [
+      ['C3','G3','C4'],['C3','G3','C4'],['F3','A3','C4'],['F3','A3','C4'],
+      ['G3','B3','D4'],['G3','B3','D4'],['Am3','E4','A4'],['C3','G3','C4']
+    ]
   }
 };
 
-// 章节 → BGM 映射（4 首歌按叙事递进）
+// 章节 → BGM 映射（每章独立风格）
 CHAPTERS.forEach(ch => {
   if (ch.isCover) { ch.bgm = null; return; }
   if (ch.isWish) { ch.bgm = 'future'; return; }
   const map = {
-    'ch01':'lucky','ch02':'lucky',
-    'ch03':'story','ch04':'slow','ch05':'slow','ch06':'slow','ch07':'story',
-    'ch11':'future'
+    'ch01':'lucky',
+    'ch02':'snow',
+    'ch03':'story',
+    'ch04':'wave',
+    'ch05':'grad',
+    'ch06':'slow',
+    'ch07':'wedding',
+    'ch11':'future',
+    'ch14':'wedding'
   };
   ch.bgm = map[ch.id] || 'lucky';
 });
