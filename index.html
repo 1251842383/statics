@@ -53,9 +53,14 @@ img{-webkit-user-drag:none;user-drag:none;-webkit-touch-callout:none}
   background:#000;
   display:block;
 }
-#home canvas{display:block;width:100%;height:100%}
+#bgFx{
+  position:absolute;inset:0;width:100%;height:100%;
+  pointer-events:none;z-index:0;
+}
+#home canvas{position:absolute;inset:0;width:100%;height:100%}
+#home canvas:not(#bgFx){z-index:1}
 #homeHint{
-  position:fixed;left:50%;bottom:max(env(safe-area-inset-bottom),40px);
+  position:fixed;left:50%;bottom:max(env(safe-area-inset-bottom),90px);
   transform:translateX(-50%);z-index:12;
   color:rgba(255,255,255,.75);font-size:.72rem;letter-spacing:.3em;
   text-align:center;pointer-events:none;
@@ -66,6 +71,33 @@ img{-webkit-user-drag:none;user-drag:none;-webkit-touch-callout:none}
 #homeHint .arrow{display:inline-block;font-size:1.2rem;margin-right:6px;animation:bob 2s ease-in-out infinite;vertical-align:-.1em}
 #homeHint .hint2,#homeHint .hint3{font-size:.65rem;color:rgba(255,255,255,.5);letter-spacing:.4em}
 @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+
+/* 回忆录入口按钮（球体下方） */
+#openChapterBtn{
+  position:fixed;left:50%;bottom:max(env(safe-area-inset-bottom),24px);
+  transform:translateX(-50%);z-index:20;
+  display:inline-flex;align-items:center;gap:10px;
+  padding:12px 28px 12px 22px;
+  background:rgba(248,232,212,.06);
+  border:1px solid rgba(248,232,212,.35);
+  border-radius:50px;color:#f8e8d4;
+  font-family:"Noto Serif SC",serif;
+  font-size:clamp(.82rem,3vw,.95rem);
+  letter-spacing:.4em;cursor:pointer;
+  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  opacity:0;animation:fadeUp 1.4s ease 1.4s forwards;
+  transition:all .3s ease;
+  box-shadow:0 4px 24px rgba(248,180,200,.15),inset 0 0 12px rgba(248,180,200,.08);
+}
+#openChapterBtn:active{transform:translateX(-50%) scale(.96);background:rgba(248,232,212,.14)}
+#openChapterBtn .ch-bookmark{color:#ff8eb3;animation:heartbeat 1.6s ease-in-out infinite}
+#openChapterBtn .ch-arrow{transition:transform .3s ease}
+#openChapterBtn:hover .ch-arrow{transform:translateX(4px)}
+@keyframes chGlow{
+  0%,100%{box-shadow:0 4px 24px rgba(248,180,200,.15),inset 0 0 12px rgba(248,180,200,.08)}
+  50%{box-shadow:0 4px 32px rgba(248,180,200,.28),inset 0 0 16px rgba(248,180,200,.15)}
+}
+#openChapterBtn.show{animation:fadeUp .8s ease forwards, chGlow 3s ease-in-out infinite .8s}
 
 /* 缩放控制按钮 */
 #zoomCtl{
@@ -153,22 +185,6 @@ img{-webkit-user-drag:none;user-drag:none;-webkit-touch-callout:none}
 }
 .preview-info .pn{font-family:"Cormorant Garamond",serif;font-style:italic;font-size:.85rem;letter-spacing:.3em;color:rgba(248,232,212,.8);margin-bottom:4px}
 .preview-info .pt{font-family:"Noto Serif SC",serif;font-weight:200;font-size:clamp(1.2rem,5vw,1.6rem);letter-spacing:.25em;text-shadow:0 2px 20px rgba(0,0,0,.7)}
-
-.preview-enter{
-  position:fixed;left:50%;bottom:max(env(safe-area-inset-bottom),30px);
-  transform:translateX(-50%);z-index:30;
-  display:none;align-items:center;gap:10px;
-  padding:14px 32px;border-radius:50px;
-  background:rgba(248,232,212,.95);
-  color:#3a1f1f;font-family:"Noto Serif SC",serif;font-size:.9rem;letter-spacing:.3em;
-  cursor:pointer;transition:all .3s ease;
-  box-shadow:0 6px 30px rgba(255,180,200,.4);
-  backdrop-filter:blur(10px);
-}
-.preview-enter.show{display:inline-flex}
-.preview-enter:active{transform:translateX(-50%) scale(.96)}
-.preview-enter .enter-arrow{animation:slideRight 1.5s ease-in-out infinite}
-@keyframes slideRight{0%,100%{transform:translateX(0)}50%{transform:translateX(4px)}}
 
 .preview-hint{
   position:fixed;left:50%;bottom:calc(max(env(safe-area-inset-bottom),30px) + 70px);
@@ -317,14 +333,15 @@ img{-webkit-user-drag:none;user-drag:none;-webkit-touch-callout:none}
 
 <!-- ============== 3D 球面首页 ============== -->
 <div id="home">
+  <canvas id="bgFx"></canvas>
   <div id="homeTitle">
     <div class="t1">Love Story</div>
-    <div class="t2">拖动浏览 · 点击进入</div>
+    <div class="t2">拖动浏览 · 点击查看原图</div>
   </div>
   <div id="homeHint">
     <div><span class="arrow">↻</span>拖 动 · 旋 转 视 角</div>
     <div class="hint2">双 指 · 缩 放 大 小</div>
-    <div class="hint3">点 击 · 预 览 照 片</div>
+    <div class="hint3">点 击 · 查 看 原 图</div>
   </div>
 
   <div id="zoomCtl">
@@ -332,6 +349,12 @@ img{-webkit-user-drag:none;user-drag:none;-webkit-touch-callout:none}
     <button class="zoom-btn reset" id="zoomReset" title="重置">⟲</button>
     <button class="zoom-btn" id="zoomOut" title="拉远">−</button>
   </div>
+
+  <button id="openChapterBtn">
+    <span class="ch-bookmark">❀</span>
+    <span class="ch-label">回 忆 录</span>
+    <span class="ch-arrow">→</span>
+  </button>
 </div>
 
 <!-- ============== 章节全屏视图 ============== -->
@@ -348,11 +371,7 @@ img{-webkit-user-drag:none;user-drag:none;-webkit-touch-callout:none}
 <div id="preview">
   <button class="preview-back" id="previewBack">‹</button>
   <div class="preview-stage" id="previewStage"></div>
-  <div class="preview-enter" id="previewEnter">
-    <span class="enter-text">进 入 章 节</span>
-    <span class="enter-arrow">→</span>
-  </div>
-  <div class="preview-hint" id="previewHint">↑ 滑 · 切 换 同 章 节 照 片</div>
+  <div class="preview-hint" id="previewHint">上 下 滑 · 切 换 同 章 节 照 片</div>
   <div class="preview-dots" id="previewDots"></div>
 </div>
 
@@ -463,6 +482,148 @@ const CHAPTERS = [
 })();
 
 // ============================================================
+// 1.5 球面背景特效：银河星空 + 流星雨
+// ============================================================
+(() => {
+  const c = document.getElementById('bgFx');
+  if (!c) return;
+  const ctx = c.getContext('2d');
+  const dpr = Math.min(window.devicePixelRatio, 2);
+  let W, H, stars = [], meteors = [], nebulaTime = 0;
+
+  function resize(){
+    W = c.width = window.innerWidth * dpr;
+    H = c.height = window.innerHeight * dpr;
+    c.style.width = window.innerWidth + 'px';
+    c.style.height = window.innerHeight + 'px';
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  // 银河星点：不同色温（蓝/白/紫/粉），少量大星
+  function initStars(){
+    stars = [];
+    const maxDim = Math.max(window.innerWidth, window.innerHeight);
+    const baseCount = Math.floor((window.innerWidth * window.innerHeight) / 4500);
+    for (let i = 0; i < baseCount; i++){
+      // 银河盘面倾向：y 越集中效果越好。这里简单随机
+      const isBig = Math.random() < 0.04;
+      const hueChoice = Math.random();
+      let hue;
+      if (hueChoice < 0.55) hue = 200 + Math.random()*40;       // 蓝白
+      else if (hueChoice < 0.8) hue = 280 + Math.random()*40;  // 紫
+      else hue = 330 + Math.random()*40;                         // 粉
+      stars.push({
+        x: Math.random(),
+        y: Math.random(),
+        sz: isBig ? (1.5 + Math.random()*1.5) : (0.3 + Math.random()*1.1),
+        baseAlpha: 0.3 + Math.random()*0.7,
+        twinkleSpeed: 0.0008 + Math.random()*0.002,
+        twinklePhase: Math.random()*Math.PI*2,
+        hue
+      });
+    }
+  }
+  initStars();
+
+  // 流星：每 1.5-4 秒发射一颗
+  const MAX_METEORS = 5;
+  let lastMeteorTime = 0;
+  function spawnMeteor(){
+    const dir = Math.random() < 0.5 ? 1 : -1;  // 向左或向右
+    return {
+      x: dir === 1 ? -0.05 : 1.05,
+      y: Math.random() * 0.4,
+      vx: 0.006 * dir,
+      vy: 0.003 + Math.random()*0.002,
+      len: 0.18 + Math.random()*0.12,
+      life: 0,
+      maxLife: 50 + Math.random()*30,
+      hue: dir === 1 ? (Math.random()<0.5 ? 35+Math.random()*15 : 200+Math.random()*40) : 280+Math.random()*40
+    };
+  }
+  meteors = [];
+
+  function draw(t){
+    const w = window.innerWidth, h = window.innerHeight;
+    nebulaTime += 0.001;
+
+    // 背景：深空渐变 + 缓慢漂移的星云光晕
+    ctx.fillStyle = 'rgba(2, 0, 8, 0.85)';
+    ctx.fillRect(0, 0, w, h);
+
+    // 星云：3 个柔光斑缓慢移动
+    const nebulaAlpha = 0.18;
+    const nebulae = [
+      { cx: w*0.3 + Math.sin(nebulaTime*0.3)*w*0.05, cy: h*0.4 + Math.cos(nebulaTime*0.25)*h*0.05, r: w*0.5, hue: 280 },
+      { cx: w*0.7 + Math.cos(nebulaTime*0.2)*w*0.06, cy: h*0.6 + Math.sin(nebulaTime*0.3)*h*0.06, r: w*0.4, hue: 330 },
+      { cx: w*0.5 + Math.sin(nebulaTime*0.4)*w*0.08, cy: h*0.3 + Math.cos(nebulaTime*0.35)*h*0.05, r: w*0.45, hue: 200 }
+    ];
+    nebulae.forEach(n => {
+      const g = ctx.createRadialGradient(n.cx, n.cy, 0, n.cx, n.cy, n.r);
+      g.addColorStop(0, `hsla(${n.hue}, 70%, 50%, ${nebulaAlpha})`);
+      g.addColorStop(0.5, `hsla(${n.hue}, 60%, 35%, ${nebulaAlpha*0.4})`);
+      g.addColorStop(1, `hsla(${n.hue}, 60%, 20%, 0)`);
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, w, h);
+    });
+
+    // 星点（带 twinkle 闪烁）
+    stars.forEach(s => {
+      const tw = 0.5 + 0.5 * Math.sin(t * s.twinkleSpeed + s.twinklePhase);
+      const alpha = s.baseAlpha * (0.5 + tw*0.5);
+      ctx.fillStyle = `hsla(${s.hue}, 75%, 85%, ${alpha})`;
+      ctx.beginPath();
+      ctx.arc(s.x*w, s.y*h, s.sz, 0, Math.PI*2);
+      ctx.fill();
+      // 大星加十字光芒
+      if (s.sz > 1.4){
+        const r = s.sz*5;
+        const rg = ctx.createRadialGradient(s.x*w, s.y*h, 0, s.x*w, s.y*h, r);
+        rg.addColorStop(0, `hsla(${s.hue}, 80%, 90%, ${alpha*0.4})`);
+        rg.addColorStop(1, `hsla(${s.hue}, 80%, 90%, 0)`);
+        ctx.fillStyle = rg;
+        ctx.fillRect(s.x*w - r, s.y*h - r, r*2, r*2);
+      }
+    });
+
+    // 流星
+    if (t - lastMeteorTime > 1500 + Math.random()*2500 && meteors.length < MAX_METEORS){
+      meteors.push(spawnMeteor());
+      lastMeteorTime = t;
+    }
+    meteors = meteors.filter(m => m.life < m.maxLife);
+    meteors.forEach(m => {
+      m.x += m.vx; m.y += m.vy;
+      m.life++;
+      const x0 = m.x*w, y0 = m.y*h;
+      const tx = (m.x - m.vx*m.len*100)*w, ty = (m.y - m.vy*m.len*100)*h;
+      const g = ctx.createLinearGradient(tx, ty, x0, y0);
+      g.addColorStop(0, `hsla(${m.hue}, 80%, 85%, 0)`);
+      g.addColorStop(0.7, `hsla(${m.hue}, 90%, 95%, 0.4)`);
+      g.addColorStop(1, `hsla(${m.hue}, 95%, 100%, 0.95)`);
+      ctx.strokeStyle = g;
+      ctx.lineWidth = 2.2;
+      ctx.beginPath();
+      ctx.moveTo(tx, ty);
+      ctx.lineTo(x0, y0);
+      ctx.stroke();
+      // 流星头光晕
+      const hr = 8;
+      const hg = ctx.createRadialGradient(x0, y0, 0, x0, y0, hr);
+      hg.addColorStop(0, `hsla(${m.hue}, 95%, 100%, 0.9)`);
+      hg.addColorStop(1, `hsla(${m.hue}, 95%, 100%, 0)`);
+      ctx.fillStyle = hg;
+      ctx.fillRect(x0 - hr, y0 - hr, hr*2, hr*2);
+    });
+
+    requestAnimationFrame(draw);
+  }
+  requestAnimationFrame(draw);
+})();
+
+// ============================================================
 // 2. 加载照片
 // ============================================================
 async function loadPhotosData(){
@@ -502,26 +663,46 @@ homeCamera.lookAt(0, 0, 0);
 // 球内壁
 const SPHERE_R = 30;
 const sphereGeo = new THREE.SphereGeometry(SPHERE_R, 64, 32);
-const sphereMat = new THREE.MeshBasicMaterial({ color:0x000000, side:THREE.BackSide });
+const sphereMat = new THREE.MeshBasicMaterial({ color:0x000000, side:THREE.BackSide, transparent:true, opacity:0.92 });
 const sphereMesh = new THREE.Mesh(sphereGeo, sphereMat);
 homeScene.add(sphereMesh);
 
-// 星空背景点
-const starGeo = new THREE.BufferGeometry();
-const starCount = 1500;
-const starPos = new Float32Array(starCount*3);
-for (let i=0;i<starCount;i++){
-  starPos[i*3] = (Math.random()-.5)*200;
-  starPos[i*3+1] = (Math.random()-.5)*200;
-  starPos[i*3+2] = (Math.random()-.5)*200;
+// 中心光晕核心（脉动心脏）
+const coreGeo = new THREE.SphereGeometry(0.6, 24, 24);
+const coreMat = new THREE.MeshBasicMaterial({ color:0xff8eb3, transparent:true, opacity:0.9 });
+const coreMesh = new THREE.Mesh(coreGeo, coreMat);
+homeScene.add(coreMesh);
+
+// 核心光晕：半透明大球壳，营造柔光
+const haloGeo = new THREE.SphereGeometry(1.8, 24, 24);
+const haloMat = new THREE.MeshBasicMaterial({ color:0xff6b95, transparent:true, opacity:0.18, side:THREE.BackSide });
+const haloMesh = new THREE.Mesh(haloGeo, haloMat);
+homeScene.add(haloMesh);
+
+// 银河尘埃带（赤道附近的星点）
+const dustCount = 80;
+const dustGeo = new THREE.BufferGeometry();
+const dustPos = new Float32Array(dustCount*3);
+const dustHue = new Float32Array(dustCount);
+for (let i=0;i<dustCount;i++){
+  const a = Math.random()*Math.PI*2;
+  const r = SPHERE_R - 2 + (Math.random()-.5)*4;
+  dustPos[i*3] = Math.cos(a)*r;
+  dustPos[i*3+1] = (Math.random()-.5)*2.5;  // 赤道附近
+  dustPos[i*3+2] = Math.sin(a)*r;
+  dustHue[i] = Math.random()*60 + 280;  // 紫到粉
 }
-starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
-const starMat = new THREE.PointsMaterial({ color:0xffffff, size:.15, transparent:true, opacity:.6 });
-const stars = new THREE.Points(starGeo, starMat);
-homeScene.add(stars);
+dustGeo.setAttribute('position', new THREE.BufferAttribute(dustPos, 3));
+const dustMat = new THREE.PointsMaterial({
+  color:0xffc0e0, size:0.4, transparent:true, opacity:0.7,
+  blending:THREE.AdditiveBlending, depthWrite:false
+});
+const dust = new THREE.Points(dustGeo, dustMat);
+homeScene.add(dust);
 
 // 章节组：所有照片 mesh 放在一个 group 里
 const photoGroup = new THREE.Group();
+photoGroup.visible = false;  // 全部加载完才显示
 homeScene.add(photoGroup);
 
 // 章节标签（DOM overlay 跟随相机）
@@ -567,24 +748,16 @@ async function buildSphereWall(photosData){
     });
   });
 
-  // 第一批：每章主图（8 张） - 立即加载
-  const mainItems = allItems.filter(it => it.isMain);
-  const otherItems = allItems.filter(it => !it.isMain);
-  // 第一批再额外加几张 coll（最多共 16 张，先够球面铺开一圈）
-  const firstBatch = [...mainItems, ...shuffle(otherItems).slice(0, 8)];
-  const restBatch = otherItems.filter(it => !firstBatch.includes(it));
-
   const loader = document.getElementById('loader');
   const loaderFill = document.getElementById('loaderFill');
   const loaderPct = document.getElementById('loaderPct');
   loader.classList.add('show');
 
-  // 用 Fibonacci 球面分布（按 firstBatch 数量先占位，加载完一张占一个槽）
-  // 实际占位数 = firstBatch.length + restBatch.length = 全部
+  // 用 Fibonacci 球面分布一次性占完所有位置
   const totalPositions = allItems.length;
   const allPositions = fibonacciSphere(totalPositions, SPHERE_R - 2.5);
 
-  function loadOne(item){
+  function loadOne(item, idx){
     return new Promise(resolve => {
       const img = new Image();
       img.crossOrigin = 'anonymous';
@@ -592,9 +765,9 @@ async function buildSphereWall(photosData){
         const tex = new THREE.Texture(img);
         tex.colorSpace = THREE.SRGBColorSpace;
         tex.needsUpdate = true;
-        resolve({ item, tex });
+        resolve({ item, tex, idx, ok:true });
       };
-      img.onerror = () => resolve(null);
+      img.onerror = () => resolve({ item, tex:null, idx, ok:false });
       img.src = item.thumbSrc;
     });
   }
@@ -609,54 +782,49 @@ async function buildSphereWall(photosData){
     const mesh = new THREE.Mesh(geo, mat);
     mesh.position.copy(allPositions[posIndex]);
     mesh.lookAt(0, 0, 0);
-    // 入场从 scale 0 长到 1
     mesh.scale.set(0.01, 0.01, 0.01);
     photoGroup.add(mesh);
-    photoMeshes.push({ mesh, chapterIdx: item.chapterIdx, src: item.src });
+    photoMeshes.push({
+      mesh, chapterIdx: item.chapterIdx, src: item.src,
+      basePos: allPositions[posIndex].clone(),
+      positionMul: 1.0
+    });
     window.photoCount = photoMeshes.length;
   }
 
-  // 第一批加载（并发，加载一张立刻入场）
-  let posIdx = 0;
-  let firstLoaded = 0;
-  const firstPromises = firstBatch.map(item =>
-    loadOne(item).then(result => {
-      if (result){
-        addPhotoToSphere(result.item, result.tex, posIdx++);
-      }
-      firstLoaded++;
-      const pct = Math.floor(firstLoaded / firstBatch.length * 100);
+  let loadedCount = 0;
+  const totalCount = allItems.length;
+
+  const allPromises = allItems.map((item, idx) =>
+    loadOne(item, idx).then(result => {
+      loadedCount++;
+      const pct = Math.floor(loadedCount / totalCount * 100);
       loaderFill.style.width = pct + '%';
       loaderPct.textContent = pct + '%';
+      return result;
     })
   );
 
-  // 等前 4 张加载完就关闭 loader（不必等全部 16 张）
-  // 用 race + 短超时模拟"前几张完成"
-  await Promise.race([
-    new Promise(r => setTimeout(() => r('timeout'), 1500)),  // 至少显示 1.5s loader
-    Promise.all(firstPromises.slice(0, 4))
-  ]);
+  // 全部加载完（每张 mesh 入场，但先不让 photoGroup 可见）
+  const results = await Promise.all(allPromises);
 
-  // 第一批加载完就关闭 loader
+  // 把所有 mesh 添加到 photoGroup
+  results.forEach(r => {
+    if (r.ok) addPhotoToSphere(r.item, r.tex, r.idx);
+  });
+
+  // 显示 loader 还保留 500ms 让用户看到 100%
+  await new Promise(r => setTimeout(r, 400));
+
   loader.classList.remove('show');
   setTimeout(() => loader.remove(), 500);
 
-  // 继续加载第一批剩余
-  await Promise.all(firstPromises);
-
-  // 第二批：剩余照片异步加载（并发数 4，避免一次性请求过多）
-  const CONCURRENT = 4;
-  for (let i = 0; i < restBatch.length; i += CONCURRENT){
-    const slice = restBatch.slice(i, i + CONCURRENT);
-    await Promise.all(slice.map(item =>
-      loadOne(item).then(result => {
-        if (result){
-          addPhotoToSphere(result.item, result.tex, posIdx++);
-        }
-      })
-    ));
-  }
+  // 整体显示球体（统一入场动画）
+  const showStart = performance.now();
+  photoMeshes.forEach((p, i) => {
+    photoEnterStart.set(p.mesh, showStart + i * 12);  // 12ms 间隔，错落入场
+  });
+  photoGroup.visible = true;
 }
 
 // 旋转控制（拖动 + 自动旋转 + 缩放）
@@ -779,13 +947,24 @@ homeRenderer.domElement.addEventListener('click', e => {
 
 // 自动旋转 + 高亮镜头正前方的照片 + 共享入场缩放
 const photoEnterStart = new WeakMap();  // mesh -> 入场开始时间
+const photoPhase = new WeakMap();       // mesh -> 独立呼吸相位
 
 function animateHome(){
   if (autoRotate){
     rotY += 0.0012;
     applyRotation();
   }
-  stars.rotation.y = rotY * 0.1;
+
+  // 中心心脏核心脉动
+  const tNow = performance.now() * 0.001;
+  const heartbeat = 0.85 + Math.sin(tNow * 2.8) * 0.15;  // 0.7 ~ 1.0
+  coreMesh.scale.setScalar(heartbeat);
+  haloMesh.scale.setScalar(1 + Math.sin(tNow * 2.8) * 0.15);
+  haloMat.opacity = 0.18 + Math.sin(tNow * 2.8) * 0.08;
+
+  // 银河尘埃带慢转
+  dust.rotation.y += 0.0005;
+  dustMat.opacity = 0.5 + Math.sin(tNow * 1.3) * 0.25;
 
   // 找到最朝向镜头的照片（z 最大，即最靠近镜头）
   let bestIdx = -1;
@@ -804,18 +983,32 @@ function animateHome(){
   photoMeshes.forEach((p, i) => {
     if (!photoEnterStart.has(p.mesh)){
       photoEnterStart.set(p.mesh, now);
+      photoPhase.set(p.mesh, Math.random() * Math.PI * 2);
     }
-    const enterT = Math.min(1, (now - photoEnterStart.get(p.mesh)) / 600);
+    const elapsed = now - photoEnterStart.get(p.mesh);
+    const enterT = elapsed < 0 ? 0 : Math.min(1, elapsed / 600);
     const enterScale = enterT < 1 ? (1 - Math.pow(1 - enterT, 3)) : 1;
 
     // 高亮条件：相机远时（camDist > 40）所有照片同等显示；相机近时高亮正前方
     const isHi = (i === bestIdx && bestZ > 5 && camDist < 40);
-    const targetScale = isHi ? 1.15 : 1.0;
+    const targetScale = isHi ? 1.18 : 1.0;
     const cur = p.mesh.scale.x;
     const highlightScale = cur + (targetScale - cur) * 0.1;
 
-    const finalScale = enterT < 1 ? enterScale : highlightScale;
+    // 照片呼吸：±1.5% 独立相位
+    const breathe = 1 + Math.sin(tNow * 1.6 + photoPhase.get(p.mesh)) * 0.015;
+
+    const finalScale = enterT < 1 ? enterScale : highlightScale * breathe;
     p.mesh.scale.set(finalScale, finalScale, 1);
+
+    // 高亮照片沿径向向外浮起（push outward from sphere center）
+    if (enterT >= 1 && p.basePos){
+      const targetMul = isHi ? 1.03 : 1.0;
+      const cur = p.positionMul || 1.0;
+      const next = cur + (targetMul - cur) * 0.15;
+      p.positionMul = next;
+      p.mesh.position.set(p.basePos.x * next, p.basePos.y * next, p.basePos.z * next);
+    }
   });
 
   homeRenderer.render(homeScene, homeCamera);
@@ -839,6 +1032,16 @@ document.getElementById('zoomReset').addEventListener('click', () => {
   applyRotation();
 });
 
+// 回忆录按钮 → 进入章节视图（从 ch01 开始，跳过 cover）
+document.getElementById('openChapterBtn').addEventListener('click', () => {
+  // 找第一个有 folder 的章节
+  let startIdx = 0;
+  for (let i = 0; i < CHAPTERS.length; i++){
+    if (CHAPTERS[i].folder){ startIdx = i; break; }
+  }
+  openChapter(startIdx);
+});
+
 // 双击屏幕重置（PC 调试）
 homeRenderer.domElement.addEventListener('dblclick', () => {
   rotY = 0; rotX = 0; camDist = CAM_DEFAULT; autoRotate = true;
@@ -857,7 +1060,6 @@ window.addEventListener('resize', () => {
 const previewEl = document.getElementById('preview');
 const previewStage = document.getElementById('previewStage');
 const previewBack = document.getElementById('previewBack');
-const previewEnter = document.getElementById('previewEnter');
 const previewHint = document.getElementById('previewHint');
 const previewDots = document.getElementById('previewDots');
 
@@ -886,11 +1088,11 @@ async function openPreview(pm){
   previewEl.classList.add('active');
   homeEl.style.display = 'none';
   previewBack.classList.add('show');
-  previewEnter.classList.add('show');
   setTimeout(() => previewHint.classList.add('show'), 600);
 
   document.getElementById('homeTitle').style.display = 'none';
   document.getElementById('homeHint').style.display = 'none';
+  document.getElementById('openChapterBtn').style.display = 'none';
 
   buildPreviewDots();
   renderPreview();
@@ -943,19 +1145,15 @@ function closePreview(){
   previewEl.classList.remove('active');
   homeEl.style.display = 'block';
   previewBack.classList.remove('show');
-  previewEnter.classList.remove('show');
   previewHint.classList.remove('show');
   previewDots.classList.remove('show');
   document.getElementById('homeTitle').style.display = 'block';
   document.getElementById('homeHint').style.display = 'block';
+  document.getElementById('openChapterBtn').style.display = 'inline-flex';
   previewStage.innerHTML = '';
 }
 
 previewBack.addEventListener('click', closePreview);
-previewEnter.addEventListener('click', () => {
-  closePreview();
-  openChapter(previewChapterIdx);
-});
 
 // 预览页触摸切换
 let prevTSX = 0, prevTSY = 0, prevTST = 0;
@@ -1335,6 +1533,7 @@ viewerBack.addEventListener('click', () => {
   viewerDots.classList.remove('show');
   document.getElementById('homeTitle').style.display = 'block';
   document.getElementById('homeHint').style.display = 'block';
+  document.getElementById('openChapterBtn').style.display = 'inline-flex';
   viewerFxState.stop = true;
 });
 
