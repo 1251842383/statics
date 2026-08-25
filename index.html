@@ -4940,8 +4940,52 @@ function renderWishScene(ch){
   const wishScene = new THREE.Scene();
   const wishCam = new THREE.PerspectiveCamera(55, 1, 0.1, 100);
   wishCam.position.set(0, 0, 13);
+  // 粒子 + 文字同组：旋转/心跳/拨动交互统一带动
+  const wishGroup = new THREE.Group();
   const points = new THREE.Points(geo, mat);
-  wishScene.add(points);
+  wishGroup.add(points);
+  wishScene.add(wishGroup);
+
+  // ============ 文字贴心：把文案做成发光纹理，环绕心形轨道漂浮 ============
+  // 每句文案一个 sprite，沿心形外扩椭圆轨道公转，随心跳同步脉动
+  function makeTextTexture(text, opts){
+    const o = Object.assign({ font: 'serif', size: 64, color: '#ffe6ee', glow: '#ff8eb3' }, opts);
+    const c = document.createElement('canvas');
+    const ctx = c.getContext('2d');
+    ctx.font = `${o.weight || ''} ${o.size}px ${o.font}`.trim();
+    const tw = ctx.measureText(text).width;
+    c.width = Math.ceil(tw + o.size * 1.6);
+    c.height = Math.ceil(o.size * 2.6);
+    ctx.font = `${o.weight || ''} ${o.size}px ${o.font}`.trim();
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.shadowColor = o.glow;
+    ctx.shadowBlur = o.size * 0.55;
+    ctx.fillStyle = o.color;
+    ctx.fillText(text, c.width / 2, c.height / 2);
+    ctx.shadowBlur = o.size * 0.25;
+    ctx.fillText(text, c.width / 2, c.height / 2);
+    const tex = new THREE.CanvasTexture(c);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    return tex;
+  }
+
+  const textSprites = [];
+  const textConfigs = [
+    { text: '下 一 个 十 年', size: 84, weight: '200', font: '"Noto Serif SC",serif', orbitR: 5.2, speed: 0.12, phase: 0, yAmp: 1.4, scale: 1.0 },
+    { text: '山海与路', size: 52, font: '"Noto Serif SC",serif', orbitR: 6.4, speed: -0.09, phase: 1.2, yAmp: 1.0, scale: 0.72 },
+    { text: '笑声与小家', size: 52, font: '"Noto Serif SC",serif', orbitR: 6.4, speed: -0.09, phase: 2.4, yAmp: 1.0, scale: 0.72 },
+    { text: '最想见的人', size: 52, font: '"Noto Serif SC",serif', orbitR: 6.4, speed: -0.09, phase: 3.6, yAmp: 1.0, scale: 0.72 },
+    { text: 'Forever ♥', size: 58, font: '"Dancing Script","Cormorant Garamond",serif', orbitR: 5.8, speed: 0.15, phase: 4.8, yAmp: 1.6, scale: 0.8 }
+  ];
+  textConfigs.forEach(cfg => {
+    const tex = makeTextTexture(cfg.text, { size: cfg.size, font: cfg.font, weight: cfg.weight });
+    const sm = new THREE.SpriteMaterial({ map: tex, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending });
+    const sp = new THREE.Sprite(sm);
+    sp.scale.set(cfg.scale * 3.4, cfg.scale * 3.4 * (tex.image.height / tex.image.width), 1);
+    sp.userData.cfg = cfg;
+    wishGroup.add(sp);
+    textSprites.push(sp);
+  });
 
   const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -4964,11 +5008,32 @@ function renderWishScene(ch){
     mouse.ndc.set(((x - r.left) / r.width) * 2 - 1, -(((y - r.top) / r.height) * 2 - 1));
     mouse.lastMove = performance.now();
   }
+  // 拨动交互：按住拖动 → 心 + 文字整体跟随旋转，松手带惯性衰减
+  let dragging = false, lastX = 0, lastY = 0, velX = 0, velY = 0;
+  function dragStart(x, y){ dragging = true; lastX = x; lastY = y; velX = velY = 0; }
+  function dragMove(x, y){
+    if (!dragging) return;
+    velY = (x - lastX) * 0.006;
+    velX = (y - lastY) * 0.004;
+    wishGroup.rotation.y += velY;
+    wishGroup.rotation.x += velX;
+    lastX = x; lastY = y;
+  }
+  function dragEnd(){ dragging = false; }
   if (isDesktop){
     window.addEventListener('mousemove', e => trackPointer(e.clientX, e.clientY), { passive: true });
+    canvas.style.pointerEvents = 'auto';
+    canvas.style.cursor = 'grab';
+    canvas.addEventListener('mousedown', e => dragStart(e.clientX, e.clientY));
+    window.addEventListener('mousemove', e => dragMove(e.clientX, e.clientY), { passive: true });
+    window.addEventListener('mouseup', dragEnd);
   } else {
     window.addEventListener('touchmove', e => trackPointer(e.touches[0].clientX, e.touches[0].clientY), { passive: true });
     window.addEventListener('touchstart', e => trackPointer(e.touches[0].clientX, e.touches[0].clientY), { passive: true });
+    canvas.style.pointerEvents = 'auto';
+    canvas.addEventListener('touchstart', e => dragStart(e.touches[0].clientX, e.touches[0].clientY), { passive: true });
+    canvas.addEventListener('touchmove', e => dragMove(e.touches[0].clientX, e.touches[0].clientY), { passive: true });
+    canvas.addEventListener('touchend', dragEnd, { passive: true });
   }
 
   // 形态时间线：0-3s 散布→心形；3-9s 心形驻留（心跳）；
@@ -4999,9 +5064,47 @@ function renderWishScene(ch){
     mouse.strength += (target - mouse.strength) * 0.06;
     mat.uniforms.uMouse.value.copy(mouse.ndc);
     mat.uniforms.uMouseStrength.value = mouse.strength;
-    // 整体缓慢旋转 + 文字方向随呼吸轻微缩放呼应
-    points.rotation.y = ts * 0.16 + Math.sin(ts * 0.3) * 0.08;
-    points.rotation.x = Math.sin(ts * 0.22) * 0.12;
+    // 整体缓慢旋转（拖动惯性叠加在用户旋转量上，文字随组同步转动）
+    if (!dragging){
+      velY *= 0.95; velX *= 0.95;
+      wishGroup.rotation.y += velY + 0.0022;
+      wishGroup.rotation.x += velX + Math.sin(ts * 0.22) * 0.0008;
+    }
+
+    // 文字贴心：沿椭圆轨道环绕心形漂浮，透明度随形态淡入淡出
+    // 心形阶段（prog≈1）文字全亮；散布/双环阶段渐隐
+    const textVis = (prog >= 0.85 && prog <= 1.15) ? 1 : (prog > 1.15 ? Math.max(0, 2 - prog) : Math.max(0, prog - 0.3));
+    const hb = 1 + 0.04 * Math.sin(ts * 5.5);
+    textSprites.forEach((sp, si) => {
+      const cfg = sp.userData.cfg;
+      const a = ts * cfg.speed + cfg.phase;
+      const r = cfg.orbitR * hb;
+      sp.position.set(
+        Math.cos(a) * r,
+        Math.sin(a * 1.6 + cfg.phase) * cfg.yAmp * 0.5 + Math.sin(ts * 0.5 + cfg.phase) * 0.3,
+        Math.sin(a) * r * 0.55
+      );
+      // 浪漫变色：粉→紫→金 循环流转，每句错开相位
+      const hueShift = (ts * 0.045 + si * 0.18) % 1;
+      // 0~0.33 粉、0.33~0.66 淡紫、0.66~1 暖金（RGB 插值三段）
+      let cr, cg, cb;
+      if (hueShift < 0.33){
+        const k = hueShift / 0.33;
+        cr = 1.0; cg = 0.62 + k * 0.02; cb = 0.70 + k * 0.30;   // 粉 → 淡紫
+      } else if (hueShift < 0.66){
+        const k = (hueShift - 0.33) / 0.33;
+        cr = 0.85 + k * 0.15; cg = 0.64 + k * 0.16; cb = 1.0;    // 淡紫 → 紫蓝
+      } else {
+        const k = (hueShift - 0.66) / 0.34;
+        cr = 1.0; cg = 0.80 - k * 0.16; cb = 1.0 - k * 0.45;     // 紫蓝 → 暖粉金
+      }
+      sp.material.color.setRGB(cr, cg, cb);
+      // 淡入（进场后 2s）+ 轨道远侧（z<0 背面）稍暗，制造纵深
+      const fadeIn = Math.min(1, Math.max(0, (ts - 1.5) / 1.5));
+      const depthDim = sp.position.z < 0 ? 0.55 : 1.0;
+      sp.material.opacity = textVis * fadeIn * depthDim;
+    });
+
     renderer.render(wishScene, wishCam);
     requestAnimationFrame(wishLoop);
   }
@@ -5013,7 +5116,11 @@ function renderWishScene(ch){
   const cleanup = () => {
     stop();
     geo.dispose(); mat.dispose(); renderer.dispose();
+    textSprites.forEach(sp => { sp.material.map.dispose(); sp.material.dispose(); });
     window.removeEventListener('resize', resizeWish);
+    window.removeEventListener('mouseup', dragEnd);
+    if (isDesktop) window.removeEventListener('mousemove', dragMove);
+    else canvas.removeEventListener('touchmove', dragMove);
   };
   // 挂到 fxState，renderChapterScene 重建时由 viewerFxState.stop 置位触发
   const watchStop = setInterval(() => {
