@@ -2266,8 +2266,10 @@ const CHAPTERS = [
   // 拖拽旋转（pointer + touch 双保险，iOS Safari 移动端 pointer 事件偶发失效）
   const _spMove = e => { onMove(e.clientX, e.clientY); };
   const _spUp = () => { isDragging = false; };
+  let _downX = 0, _downY = 0, _downT = 0, _isClick = false;
   function onDown(x, y){
     isDragging = true; lastX = x; lastY = y;
+    _downX = x; _downY = y; _downT = performance.now(); _isClick = true;
   }
   function onMove(x, y){
     if (!isDragging) return;
@@ -2276,11 +2278,16 @@ const CHAPTERS = [
     targetYaw -= dx * 0.005;
     targetPitch += dy * 0.005;
     targetPitch = Math.max(-1.2, Math.min(1.2, targetPitch));
+    if (Math.hypot(x - _downX, y - _downY) > 6) _isClick = false;  // 移动超过 6px 视为拖拽
   }
   // pointer 事件（桌面 + 大多数移动浏览器）
   c.addEventListener('pointerdown', e => { onDown(e.clientX, e.clientY); e.preventDefault(); });
   window.addEventListener('pointermove', _spMove);
-  window.addEventListener('pointerup', _spUp);
+  window.addEventListener('pointerup', e => {
+    const wasClick = _isClick && (performance.now() - _downT) < 350;
+    _spUp();
+    if (wasClick) handlePlanetClick(e.clientX, e.clientY);
+  });
   window.addEventListener('pointercancel', _spUp);
   // touch 事件兜底（iOS Safari 移动端）— 单指拖拽 + 双指 pinch 缩放
   let _spTouchActive = false;
@@ -2299,6 +2306,12 @@ const CHAPTERS = [
       pinchD0 = Math.hypot(dx, dy);
       pinchTar0 = targetDistance;
       _spTouchActive = false;  // 进入 pinch 模式，禁用单指拖拽
+    } else if (e.touches.length === 1){
+      // 单指：开始记下点击起点（用于区分 tap / drag）
+      const t = e.touches[0];
+      _downX = t.clientX; _downY = t.clientY; _downT = performance.now();
+      _isClick = true;
+      _spTouchActive = true;
     }
   }, { passive: true });
   // 合并：touchmove 处理单指拖拽 + 双指 pinch（避免重复绑定 touchmove）
@@ -2315,7 +2328,14 @@ const CHAPTERS = [
     }
   };
   c.addEventListener('touchmove', _spTouchMove, { passive: false });
-  c.addEventListener('touchend', e => { _spTouchActive = false; pinchD0 = 0; _spUp(); });
+  c.addEventListener('touchend', e => {
+    const wasTap = _isClick && (performance.now() - _downT) < 350 && pinchD0 === 0;
+    _spTouchActive = false; pinchD0 = 0; _spUp();
+    if (wasTap && e.changedTouches.length === 1){
+      const t = e.changedTouches[0];
+      handlePlanetClick(t.clientX, t.clientY);
+    }
+  });
   c.addEventListener('touchcancel', () => { _spTouchActive = false; pinchD0 = 0; _spUp(); });
   const _spResize = () => {
     camera.aspect = window.innerWidth / window.innerHeight;
@@ -2323,6 +2343,28 @@ const CHAPTERS = [
     renderer.setSize(window.innerWidth, window.innerHeight, false);
   };
   window.addEventListener('resize', _spResize);
+
+  // 点击行星 → 相机平滑切换到该天体为中心并拉近距离
+  const _spRaycaster = new T.Raycaster();
+  const _spNdc = new T.Vector2();
+  function handlePlanetClick(cx, cy){
+    const rect = c.getBoundingClientRect();
+    _spNdc.x = ((cx - rect.left) / rect.width) * 2 - 1;
+    _spNdc.y = -((cy - rect.top) / rect.height) * 2 + 1;
+    _spRaycaster.setFromCamera(_spNdc, camera);
+    const hits = _spRaycaster.intersectObjects(planetMeshes, false);
+    if (!hits.length) return;
+    const hit = hits[0].object;
+    const name = hit.userData?.name || hit.userData?.planetName;
+    // 1) 相机目标切到该天体当前位置
+    targetCameraTarget.x = hit.position.x;
+    targetCameraTarget.z = hit.position.z;
+    // 2) 距离设为该天体半径 × 4（能看清但不全遮住），并限制在 4~140
+    const r = hit.userData?.r || 1;
+    targetDistance = Math.max(4, Math.min(140, r * 4));
+    // 3) 视场微调：拉近时 FOV 略微变窄，更接近"看清天体"
+    targetFOV = 55;
+  }
 
   // 动画循环
   let alive = true;
@@ -2336,38 +2378,38 @@ const CHAPTERS = [
     planetMeshes.forEach(m => {
       if (m.material.uniforms && m.material.uniforms.uTime) m.material.uniforms.uTime.value = t;
       const d = m.userData;
-      // 公转：速度大幅降低，体验感舒适（外圈行星也要慢，肉眼可看但不晕）
-      d.angle += 0.04 * d.speed;
+      // 公转：整体降速 ~3 倍，留出可观察可互动的节奏
+      d.angle += 0.012 * d.speed;
       m.position.x = Math.cos(d.angle) * d.d;
       m.position.z = Math.sin(d.angle) * d.d;
-      m.rotation.y += d.axial;
-      // 月亮绕地球公转
+      m.rotation.y += d.axial * 0.4;
+      // 月亮绕地球公转（也降速）
       if (d.moonMesh){
-        d.moonMesh.userData.moonAngle += 0.012;
+        d.moonMesh.userData.moonAngle += 0.004;
         const ma = d.moonMesh.userData.moonAngle;
         const mr = d.moonMesh.userData.orbitR;
         d.moonMesh.position.set(Math.cos(ma) * mr, Math.sin(ma * 0.3) * mr * 0.15, Math.sin(ma) * mr);
-        d.moonMesh.rotation.y += 0.002;
+        d.moonMesh.rotation.y += 0.001;
       }
       // 卫星绕地球公转
       if (d.satellites){
         d.satellites.forEach(sat => {
-          sat.userData.angle += sat.userData.speed * 0.5;
+          sat.userData.angle += sat.userData.speed * 0.18;
           const a = sat.userData.angle;
           const r = sat.userData.orbitR;
           sat.position.set(Math.cos(a) * r, Math.sin(a * 1.3) * r * 0.3 * sat.userData.tilt, Math.sin(a) * r);
-          sat.rotation.y += 0.01;
+          sat.rotation.y += 0.003;
         });
       }
     });
-    mainGalaxy.rotation.z = t * 0.012;
+    mainGalaxy.rotation.z = t * 0.004;
     mainGalaxy.scale.setScalar(1 + Math.sin(t*0.4)*0.025);
     // 远景星系各自缓慢自转
     for (let gi = 0; gi < distGalaxies.length; gi++){
-      distGalaxies[gi].rotation.z = t * 0.008 * (gi % 2 === 0 ? 1 : -1);
+      distGalaxies[gi].rotation.z = t * 0.0025 * (gi % 2 === 0 ? 1 : -1);
     }
     // 小行星带缓慢公转
-    asteroids.rotation.y = t * 0.015;
+    asteroids.rotation.y = t * 0.005;
     // 自动相机推近：8 秒内 90→60
     if (t < 8 && targetDistance > 60) targetDistance = 90 - (t/8)*30;
     // 平滑插值
@@ -6860,6 +6902,41 @@ viewerStage.addEventListener('touchend', e => {
     startAutoAdvance(scene);
   }
 }, {passive:true});
+
+// 滚轮 / 鼠标上下键 → 章节内切换照片（仅桌面端有滚轮）
+let _wheelAccum = 0;
+viewerStage.addEventListener('wheel', e => {
+  if (!viewerPhotos.length) return;
+  const scene = viewerStage.querySelector('.scene');
+  if (!scene) return;
+  // 累积阈值：单次 wheel deltaY 多半为 ±100，避免滚一格触发多次
+  _wheelAccum += e.deltaY;
+  if (Math.abs(_wheelAccum) < 60) return;
+  const dir = _wheelAccum > 0 ? 'next' : 'prev';
+  _wheelAccum = 0;
+  e.preventDefault();
+  if (viewerMode === 'ar' && arApi){ arApi.cycle(dir === 'next' ? 1 : -1); return; }
+  if (viewerMode === 'book' && scene._book) bookFlip(scene._book, dir);
+  else if (viewerMode === 'flow' && scene._flow) flowGo(scene, dir);
+  else if (viewerMode === 'stack' && scene._stack) stackGo(scene, dir);
+  startAutoAdvance(scene);
+}, {passive:false});
+
+// 键盘上下键 → 同章节切照片
+window.addEventListener('keydown', e => {
+  if (!viewerEl.classList.contains('active')) return;  // 只在章节视图
+  if (e.target?.tagName === 'INPUT' || e.target?.tagName === 'TEXTAREA') return;
+  if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+  const scene = viewerStage.querySelector('.scene');
+  if (!scene || !viewerPhotos.length) return;
+  e.preventDefault();
+  const dir = e.key === 'ArrowUp' ? 'prev' : 'next';
+  if (viewerMode === 'ar' && arApi){ arApi.cycle(dir === 'next' ? 1 : -1); return; }
+  if (viewerMode === 'book' && scene._book) bookFlip(scene._book, dir);
+  else if (viewerMode === 'flow' && scene._flow) flowGo(scene, dir);
+  else if (viewerMode === 'stack' && scene._stack) stackGo(scene, dir);
+  startAutoAdvance(scene);
+});
 
 function openNextChapter(){
   for (let i = viewerIdx + 1; i < CHAPTERS.length; i++){
