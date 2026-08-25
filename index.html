@@ -33,7 +33,7 @@ img{-webkit-user-drag:none;user-drag:none;-webkit-touch-callout:none}
   transition:opacity 1.2s ease,visibility 1.2s ease;
 }
 #splash.hidden{opacity:0;visibility:hidden;pointer-events:none}
-#splash canvas{position:absolute;inset:0;width:100%;height:100%}
+#splash canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none;-webkit-touch-callout:none;user-select:none}
 .splash-content{position:relative;z-index:2;text-align:center;color:#f8e8d4;padding:0 30px}
 .splash-eyebrow{font-family:"Cormorant Garamond",serif;font-style:italic;font-size:clamp(.85rem,3vw,1rem);letter-spacing:.6em;color:rgba(248,232,212,.5);margin-bottom:18px;opacity:0;animation:fadeIn 1.4s ease .3s forwards}
 .splash-title{font-family:"Dancing Script","Cormorant Garamond",serif;font-size:clamp(3rem,12vw,5rem);font-weight:400;letter-spacing:.04em;color:#fff;text-shadow:0 0 40px rgba(255,180,200,.4),0 0 80px rgba(180,120,255,.2);margin-bottom:8px;opacity:0;animation:titleIn 1.8s ease .8s forwards}
@@ -1351,6 +1351,7 @@ const isMobile = !isDesktop;
 // 暴露到 window 方便 puppeteer 测试 + 调试
 window.__isDesktop = isDesktop;
 window.__isMobile = isMobile;
+window._openChapterToken = 0;  // 章节切换竞争保护（快速连点取消旧 openChapter）
 // 写入根节点，方便 CSS 也能针对设备差异化（如隐藏某些层）
 document.documentElement.classList.add(isDesktop ? 'is-desktop' : 'is-mobile');
 
@@ -1500,30 +1501,41 @@ function animateFlipBurst(){
 // 1. 数据
 // ============================================================
 const CHAPTERS = [
-  { id:'cover', title:'爱的回忆', en:'A LOVE STORY', folder:null, bg:null, effect:null, text:'', isCover:true, photo:null },
+  { id:'cover', title:'爱的回忆', en:'A LOVE STORY', folder:null, bg:null, effect:null, text:'', isCover:true, photo:null, bgm:'lucky' },
   { id:'ch01', title:'在那之前', en:'BEFORE WE MET', folder:'chapter-01-before', bg:'bg-images/01-snow.jpg', effect:'meteor',
-    text:'从茫茫人海到彼此相望\n那一年我们还各自走在不同的路上\n不知道未来会有你\n只知道心里一直期待着什么' },
+    text:'从茫茫人海到彼此相望\n那一年我们还各自走在不同的路上\n不知道未来会有你\n只知道心里一直期待着什么',
+    bgm:'slow' },
   { id:'ch02', title:'峨眉雪', en:'SNOW ON EMEI', folder:'chapter-02-emei', bg:'bg-images/02-emei.jpg', effect:'snow',
-    text:'金顶之上，白雪纷飞\n我们裹着同一件大衣\n看远山如画，近处是你\n这一刻，整个世界都安静了' },
+    text:'金顶之上，白雪纷飞\n我们裹着同一件大衣\n看远山如画，近处是你\n这一刻，整个世界都安静了',
+    bgm:'snow' },
   { id:'ch03', title:'山城之夜', en:'CHONGQING NIGHT', folder:'chapter-03-chongqing', bg:'bg-images/03-chongqing.jpg', effect:'lantern',
-    text:'洪崖洞的灯火一盏一盏亮起\n嘉陵江的风吹过你的发梢\n我们在人海里牵着手\n像这座城市一样，热烈而浪漫' },
+    text:'洪崖洞的灯火一盏一盏亮起\n嘉陵江的风吹过你的发梢\n我们在人海里牵着手\n像这座城市一样，热烈而浪漫',
+    bgm:'lucky' },
   { id:'ch04', title:'北海海风', en:'BEIHAI BREEZE', folder:'chapter-04-beihai', bg:'bg-images/04-beach.jpg', effect:'wave',
-    text:'银滩的浪花一遍遍涌来\n像是要把我们的故事反复说给你听\n你说，这海真蓝\n我说，因为你在我身边' },
+    text:'银滩的浪花一遍遍涌来\n像是要把我们的故事反复说给你听\n你说，这海真蓝\n我说，因为你在我身边',
+    bgm:'wave' },
   { id:'ch05', title:'那年毕业', en:'GRADUATION', folder:'chapter-05-graduation', bg:'bg-images/05-graduation.jpg', effect:'petal',
-    text:'学位帽抛向天空的那一刻\n我们笑得像个孩子\n谢谢你陪我走完这一程\n也谢谢你，让我成为更好的我' },
+    text:'学位帽抛向天空的那一刻\n我们笑得像个孩子\n谢谢你陪我走完这一程\n也谢谢你，让我成为更好的我',
+    bgm:'grad' },
   { id:'ch06', title:'在一起的每一天', en:'EVERY DAY WITH YOU', folder:'chapter-06-daily', bg:'bg-images/06-daily.jpg', effect:'bokeh',
-    text:'一起做饭，一起看剧\n一起为小事吵架，又和好\n原来爱情不是轰轰烈烈\n是柴米油盐里也闪着光' },
+    text:'一起做饭，一起看剧\n一起为小事吵架，又和好\n原来爱情不是轰轰烈烈\n是柴米油盐里也闪着光',
+    bgm:'slow' },
   { id:'ch07', title:'我们结婚了', en:'WE GOT MARRIED', folder:'chapter-07-wedding', bg:'bg-images/07-wedding.jpg', effect:'rose',
-    text:'当你说"我愿意"的那一刻\n时间好像停止了\n从今往后，无论贫穷富有\n我都陪着你，直到永远' },
+    text:'当你说"我愿意"的那一刻\n时间好像停止了\n从今往后，无论贫穷富有\n我都陪着你，直到永远',
+    bgm:'wedding' },
   { id:'ch11', title:'柯柯来了', en:'KOKO ARRIVED', folder:'chapter-11-baby', bg:'bg-images/11-baby.jpg', effect:'bubble',
-    text:'小小的你来到这个世界\n哭声那么响，眼睛那么亮\n我们的二人世界变成了三口之家\n从此多了一份软绵绵的牵挂' },
+    text:'小小的你来到这个世界\n哭声那么响，眼睛那么亮\n我们的二人世界变成了三口之家\n从此多了一份软绵绵的牵挂',
+    bgm:'story' },
   { id:'ch14', title:'时光影片', en:'TIME FILMS', folder:'chapter-14-video', bg:'bg-images/14-video.jpg', effect:'film',
-    text:'我们拍过的那些短片\n把每一个值得纪念的瞬间都留下来\n按下播放键，回到那一刻', isVideo:true },
+    text:'我们拍过的那些短片\n把每一个值得纪念的瞬间都留下来\n按下播放键，回到那一刻', isVideo:true,
+    bgm:'future' },
   { id:'ch15', title:'AR时光墙', en:'AR MEMORY WALL', folder:'chapter-15-ar', bg:null, effect:'holo', isAR:true,
-    text:'把最珍贵的瞬间封存在光里\n誓言、心动、相拥、初见\n指尖轻抚，时光便重新亮起\n原来回忆真的可以触摸' },
+    text:'把最珍贵的瞬间封存在光里\n誓言、心动、相拥、初见\n指尖轻抚，时光便重新亮起\n原来回忆真的可以触摸',
+    bgm:'future' },
   { id:'wish', title:'下一个十年', en:'NEXT TEN YEARS', folder:null, bg:null, effect:'heart',
     text:'愿我们继续牵着彼此的手，看更多的山海，走更远的路。\n愿我们的小家永远充满笑声，愿柯柯健康快乐地长大。\n愿十年后、二十年后、五十年后，你仍是我最想见的那个人。',
-    isWish:true, photo:null }
+    isWish:true, photo:null,
+    bgm:'future' }
 ];
 
 // ============================================================
@@ -2251,7 +2263,7 @@ const CHAPTERS = [
   scene.add(buildStarfield(isMobile?100:240, 220, 520, spriteWarm));    // 中景暖星
   scene.add(buildStarfield(isMobile?160:360, 520, 1200, spritePurple)); // 远景蓝紫
 
-  // 拖拽旋转（pointer + touch 兼容）
+  // 拖拽旋转（pointer + touch 双保险，iOS Safari 移动端 pointer 事件偶发失效）
   const _spMove = e => { onMove(e.clientX, e.clientY); };
   const _spUp = () => { isDragging = false; };
   function onDown(x, y){
@@ -2265,10 +2277,13 @@ const CHAPTERS = [
     targetPitch += dy * 0.005;
     targetPitch = Math.max(-1.2, Math.min(1.2, targetPitch));
   }
+  // pointer 事件（桌面 + 大多数移动浏览器）
   c.addEventListener('pointerdown', e => { onDown(e.clientX, e.clientY); e.preventDefault(); });
   window.addEventListener('pointermove', _spMove);
   window.addEventListener('pointerup', _spUp);
   window.addEventListener('pointercancel', _spUp);
+  // touch 事件兜底（iOS Safari 移动端）— 单指拖拽 + 双指 pinch 缩放
+  let _spTouchActive = false;
   // 缩放：滚轮 + 双指
   c.addEventListener('wheel', e => {
     e.preventDefault();
@@ -2276,23 +2291,32 @@ const CHAPTERS = [
     targetDistance = Math.max(4, Math.min(140, targetDistance + e.deltaY * 0.04));
   }, { passive: false });
   let pinchD0 = 0, pinchTar0 = 0;
+  // 双指 pinch 缩放（在 touchstart 触发时检测到 2 指则启用）
   c.addEventListener('touchstart', e => {
     if (e.touches.length === 2){
       const dx = e.touches[0].clientX - e.touches[1].clientX;
       const dy = e.touches[0].clientY - e.touches[1].clientY;
       pinchD0 = Math.hypot(dx, dy);
       pinchTar0 = targetDistance;
+      _spTouchActive = false;  // 进入 pinch 模式，禁用单指拖拽
     }
   }, { passive: true });
+  // 合并：touchmove 处理单指拖拽 + 双指 pinch（避免重复绑定 touchmove）
   const _spTouchMove = e => {
     if (e.touches.length === 2 && pinchD0 > 0){
       const dx = e.touches[0].clientX - e.touches[1].clientX;
       const dy = e.touches[0].clientY - e.touches[1].clientY;
       const d = Math.hypot(dx, dy);
       targetDistance = Math.max(4, Math.min(140, pinchTar0 * (pinchD0 / d)));
+      e.preventDefault();
+    } else if (e.touches.length === 1 && _spTouchActive && pinchD0 === 0){
+      onMove(e.touches[0].clientX, e.touches[0].clientY);
+      e.preventDefault();
     }
   };
-  c.addEventListener('touchmove', _spTouchMove, { passive: true });
+  c.addEventListener('touchmove', _spTouchMove, { passive: false });
+  c.addEventListener('touchend', e => { _spTouchActive = false; pinchD0 = 0; _spUp(); });
+  c.addEventListener('touchcancel', () => { _spTouchActive = false; pinchD0 = 0; _spUp(); });
   const _spResize = () => {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
@@ -4659,6 +4683,7 @@ async function openPreview(pm){
   if (!previewAllChapters[previewChapterIdx]){
     if (ch.folder){
       const data = await loadPhotosData();
+      // 预览用原图（点击章节图后才加载）
       previewAllChapters[previewChapterIdx] = (data[ch.folder]?.original || []).map(p => `${ch.folder}/${p}`);
     } else {
       previewAllChapters[previewChapterIdx] = [];
@@ -4666,7 +4691,10 @@ async function openPreview(pm){
   }
   previewPhotos = previewAllChapters[previewChapterIdx];
   // 找到当前点击的照片在预览列表中的位置
-  previewPhotoIdx = previewPhotos.findIndex(p => p === pm.src);
+  // pm.src 可能是 thumb_small（章节视图）或 original（首页球面）—— 都做匹配
+  const pmSrc = pm.src;
+  const pmSrcOriginal = pmSrc.replace(/\/thumb_small\//, '/');
+  previewPhotoIdx = previewPhotos.findIndex(p => p === pmSrc || p === pmSrcOriginal);
   if (previewPhotoIdx < 0) previewPhotoIdx = 0;
 
   previewEl.classList.add('active');
@@ -4833,6 +4861,8 @@ let arThemes = [];  // ch15 AR 章节的主题照片组
 async function openChapter(idx){
   viewerIdx = idx;
   const ch = CHAPTERS[idx];
+  // 防止快速点击切章时上一章异步加载污染当前章
+  const _openToken = ++window._openChapterToken;
   viewerEl.classList.add('active');
   homeEl.style.display = 'none';
   // 进入章节：暂停 home 渲染 + 释放上一页章节 3D 资源
@@ -4847,10 +4877,11 @@ async function openChapter(idx){
   // 切换到对应章节的 BGM
   if (ch.bgm) switchBGM(ch.bgm);
 
-  // 加载这一章的照片
+  // 加载这一章的照片（章节显示用 thumb_small —— 球面已预加载，复用避免黑屏）
   viewerPhotos = [];
   if (ch.folder){
     const data = await loadPhotosData();
+    if (_openToken !== window._openChapterToken) return;  // 已被新章节取代
     const entry = data[ch.folder];
     if (ch.isAR){
       // AR 章节：按主题加载（photos.json 的 themes 结构）
@@ -4860,7 +4891,16 @@ async function openChapter(idx){
       })).filter(t => t.photos.length);
     } else {
       const arr = Array.isArray(entry) ? entry : (entry?.original || []);
-      arr.forEach(p => viewerPhotos.push(`${ch.folder}/${p}`));
+      if (ch.isVideo){
+        // 视频章直接用 mp4 路径（thumb_small 不存在）
+        arr.forEach(p => viewerPhotos.push(`${ch.folder}/${p}`));
+      } else {
+        arr.forEach(p => {
+          // 显示用压缩图 thumb_small（原图点击预览时才加载）
+          const displayName = p.replace(/^thumb\//, '');
+          viewerPhotos.push(`${ch.folder}/thumb_small/${displayName}`);
+        });
+      }
     }
   }
   if (!viewerPhotos.length && ch.folder && !ch.isVideo && !ch.isAR){
@@ -4871,6 +4911,7 @@ async function openChapter(idx){
   if (!ch.isVideo && viewerPhotos.length){
     const firstBatch = viewerPhotos.slice(0, isDesktop ? 4 : 2);
     await Promise.all(firstBatch.map(u => preloadImage(u)));
+    if (_openToken !== window._openChapterToken) return;  // 已被新章节取代
     // 后面的图片小并发提前热身（不 await，不阻塞章节打开）
     const rest = viewerPhotos.slice(firstBatch.length);
     (async () => {
@@ -5211,7 +5252,18 @@ function startChapterThree(sceneEl, ch){
       stop = true;
       cancelAnimationFrame(raf);
       window.removeEventListener('resize', onResize);
-      try { renderer.dispose(); } catch(e){}
+      // 释放场景里的 geometry / material（renderer.dispose 不递归）
+      try {
+        threeScene.traverse(obj => {
+          if (obj.geometry) obj.geometry.dispose();
+          if (obj.material){
+            const m = obj.material;
+            if (Array.isArray(m)) m.forEach(mm => mm.dispose());
+            else m.dispose();
+          }
+        });
+        renderer.dispose();
+      } catch(e){}
       // 强制释放 GL 上下文 —— 连续浏览多章节时避免上下文累积导致越来越卡
       try { renderer.forceContextLoss(); } catch(e){}
       const dom = renderer.domElement;
@@ -6824,6 +6876,7 @@ function openPrevChapter(){
 viewerBack.addEventListener('click', () => {
   viewerEl.classList.remove('active');
   window.__homePaused = false;  // 恢复 home 渲染
+  window._openChapterToken = (window._openChapterToken||0) + 1;  // 取消未完成的 openChapter
   destroyChapterThree();       // 释放当前章节的 3D 资源
   homeEl.style.display = 'block';
   viewerBack.classList.remove('show');
