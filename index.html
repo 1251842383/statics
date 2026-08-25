@@ -271,7 +271,7 @@ img{-webkit-user-drag:none;user-drag:none;-webkit-touch-callout:none}
 .wish-heart{position:absolute;color:#ff6b95;font-size:1.2rem;animation:floatUp 6s ease-in infinite;opacity:0}
 
 /* ============ wish 章节：shader 3D 心形 canvas + 文字特效 ============ */
-.wish-3d{position:absolute;inset:0;z-index:1;pointer-events:none}
+.wish-3d{position:absolute;inset:0;width:100%;height:100%;z-index:1;pointer-events:none}
 .wish .cover-content{position:relative;z-index:3}
 /* 文字逐行浮现 + 呼吸光晕，与心形脉冲呼应 */
 .wish .viewer-wish-title{
@@ -2378,38 +2378,38 @@ const CHAPTERS = [
     planetMeshes.forEach(m => {
       if (m.material.uniforms && m.material.uniforms.uTime) m.material.uniforms.uTime.value = t;
       const d = m.userData;
-      // 公转：整体降速 ~3 倍，留出可观察可互动的节奏
-      d.angle += 0.012 * d.speed;
+      // 公转：再降速 ~2 倍（总累计 ~6 倍），节奏舒缓可互动
+      d.angle += 0.006 * d.speed;
       m.position.x = Math.cos(d.angle) * d.d;
       m.position.z = Math.sin(d.angle) * d.d;
-      m.rotation.y += d.axial * 0.4;
+      m.rotation.y += d.axial * 0.2;
       // 月亮绕地球公转（也降速）
       if (d.moonMesh){
-        d.moonMesh.userData.moonAngle += 0.004;
+        d.moonMesh.userData.moonAngle += 0.002;
         const ma = d.moonMesh.userData.moonAngle;
         const mr = d.moonMesh.userData.orbitR;
         d.moonMesh.position.set(Math.cos(ma) * mr, Math.sin(ma * 0.3) * mr * 0.15, Math.sin(ma) * mr);
-        d.moonMesh.rotation.y += 0.001;
+        d.moonMesh.rotation.y += 0.0006;
       }
       // 卫星绕地球公转
       if (d.satellites){
         d.satellites.forEach(sat => {
-          sat.userData.angle += sat.userData.speed * 0.18;
+          sat.userData.angle += sat.userData.speed * 0.08;
           const a = sat.userData.angle;
           const r = sat.userData.orbitR;
           sat.position.set(Math.cos(a) * r, Math.sin(a * 1.3) * r * 0.3 * sat.userData.tilt, Math.sin(a) * r);
-          sat.rotation.y += 0.003;
+          sat.rotation.y += 0.0015;
         });
       }
     });
-    mainGalaxy.rotation.z = t * 0.004;
+    mainGalaxy.rotation.z = t * 0.002;
     mainGalaxy.scale.setScalar(1 + Math.sin(t*0.4)*0.025);
     // 远景星系各自缓慢自转
     for (let gi = 0; gi < distGalaxies.length; gi++){
-      distGalaxies[gi].rotation.z = t * 0.0025 * (gi % 2 === 0 ? 1 : -1);
+      distGalaxies[gi].rotation.z = t * 0.0012 * (gi % 2 === 0 ? 1 : -1);
     }
     // 小行星带缓慢公转
-    asteroids.rotation.y = t * 0.005;
+    asteroids.rotation.y = t * 0.0025;
     // 自动相机推近：8 秒内 90→60
     if (t < 8 && targetDistance > 60) targetDistance = 90 - (t/8)*30;
     // 平滑插值
@@ -5755,7 +5755,7 @@ function renderWishScene(ch){
     <div class="viewer-slide wish">
       <canvas class="wish-3d"></canvas>
       <div class="wish-hearts">${hearts}</div>
-      <div class="cover-content" style="position:relative;z-index:3">
+      <div class="cover-content" style="position:relative;z-index:3;pointer-events:none">
         <h2 class="viewer-wish-title" data-decode>下一个十年</h2>
         <p class="viewer-wish-text">愿我们继续牵着彼此的手，看更多的山海，走更远的路。</p>
         <p class="viewer-wish-text">愿我们的小家永远充满笑声，愿柯柯健康快乐地长大。</p>
@@ -5936,6 +5936,9 @@ function renderWishScene(ch){
   const wishGroup = new THREE.Group();
   const points = new THREE.Points(geo, mat);
   wishGroup.add(points);
+  // 入场：从左上偏移 + 0.6 倍缩放，慢慢漂到中心 + 1.0 倍（2.5 秒）
+  wishGroup.position.set(-4, 3, 0);
+  wishGroup.scale.setScalar(0.6);
   wishScene.add(wishGroup);
 
   // ============ 文字贴心：把文案做成发光纹理，环绕心形轨道漂浮 ============
@@ -5986,11 +5989,15 @@ function renderWishScene(ch){
   function resizeWish(){
     const w = canvas.clientWidth || window.innerWidth;
     const h = canvas.clientHeight || window.innerHeight;
+    if (w === 0 || h === 0) return;
     renderer.setSize(w, h, false);
     wishCam.aspect = w / h;
     wishCam.updateProjectionMatrix();
   }
   resizeWish();
+  // 监听 canvas 自身尺寸变化（章节切换 / 旋转 / 布局变更）
+  const _wishResizeObs = new ResizeObserver(resizeWish);
+  _wishResizeObs.observe(canvas);
   window.addEventListener('resize', resizeWish);
 
   // 鼠标 / 触摸交互
@@ -6062,6 +6069,14 @@ function renderWishScene(ch){
       wishGroup.rotation.y += velY + 0.0022;
       wishGroup.rotation.x += velX + Math.sin(ts * 0.22) * 0.0008;
     }
+    // 入场动画：从左上漂到中心 + 缩放放大（2.5 秒 ease-out 后停止干预）
+    if (ts < 2.5){
+      const e = ts / 2.5;
+      const ease = 1 - Math.pow(1 - e, 3);  // easeOutCubic
+      wishGroup.position.x = -4 * (1 - ease);
+      wishGroup.position.y = 3 * (1 - ease);
+      wishGroup.scale.setScalar(0.6 + 0.4 * ease);
+    }
 
     // 文字贴心：沿椭圆轨道环绕心形漂浮，透明度随形态淡入淡出
     // 心形阶段（prog≈1）文字全亮；散布/双环阶段渐隐
@@ -6110,6 +6125,7 @@ function renderWishScene(ch){
     geo.dispose(); mat.dispose(); renderer.dispose();
     try { renderer.forceContextLoss(); } catch(e){}  // 释放 GL 上下文
     textSprites.forEach(sp => { sp.material.map.dispose(); sp.material.dispose(); });
+    if (_wishResizeObs) _wishResizeObs.disconnect();
     window.removeEventListener('resize', resizeWish);
     window.removeEventListener('mouseup', dragEnd);
     if (isDesktop) window.removeEventListener('mousemove', dragMove);
