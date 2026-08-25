@@ -1705,59 +1705,104 @@ const CHAPTERS = [
     tex.anisotropy = 4;
     return tex;
   }
-  // ============ 真实 NASA 贴图加载（地球 + 月亮），失败回退到程序化 ============
-  // Three.js examples 公开 CORS 资源，可在浏览器直接跨域加载
-  function loadRemoteTexture(url, fallback){
-    const tex = new T.TextureLoader().load(
-      url,
-      t => { t.colorSpace = T.SRGBColorSpace; t.anisotropy = 4; t.needsUpdate = true; },
-      undefined,
-      () => { console.warn('[splash] 远程贴图失败，使用程序化纹理:', url); }
-    );
-    // 加载失败时用 fallback canvas texture
+  // ============ 真实 NASA / Three.js 贴图加载（多源 fallback） ============
+  // 优先 Three.js examples 公共 CDN（已确认 CORS 友好）；其他行星程序化纹理兜底
+  const TEX_URLS = {
+    earth: [
+      'https://threejs.org/examples/textures/planets/earth_atmos_2048.jpg'
+    ],
+    moon: [
+      'https://threejs.org/examples/textures/planets/moon_1024.jpg'
+    ]
+    // 其他行星（水/金/火/木/土/天/海）：用程序化纹理，木星保留条带 shader，
+    // 火星保留锈红程序化纹理。教学场景下地球+月亮高分辨率实景已足够震撼
+  };
+  // 同步探测：按顺序尝试，命中即返回
+  function tryLoadTexture(urls, fallbackTex){
     return new Promise(resolve => {
-      tex.onUpdate = () => resolve(tex);
-      // 200ms 内若没 onUpdate 则用 fallback
-      setTimeout(() => {
-        if (!tex.image) resolve(fallback);
-        else resolve(tex);
-      }, 1500);
+      let i = 0;
+      const tryNext = () => {
+        if (i >= urls.length){
+          resolve(fallbackTex);
+          return;
+        }
+        const url = urls[i++];
+        const loader = new T.TextureLoader();
+        // 用 .load 但立刻检查 image
+        loader.load(url,
+          tex => {
+            tex.colorSpace = T.SRGBColorSpace;
+            tex.anisotropy = 4;
+            tex.needsUpdate = true;
+            resolve(tex);
+          },
+          undefined,
+          () => { tryNext(); }
+        );
+      };
+      tryNext();
+      // 兜底超时：单个 URL 1.5s 还不出图就放弃整个链条
+      setTimeout(() => resolve(fallbackTex), 6000);
     });
   }
-  // 先用程序化纹理兜底，远程加载成功后替换
-  const earthTexFallback = createEarthTexture();
-  const moonTexFallback  = createMoonTexture();
-  const earthTex = earthTexFallback;
-  const moonTex  = moonTexFallback;
-  // 异步尝试加载真实 NASA / Three.js 公开纹理
-  Promise.all([
-    loadRemoteTexture('https://threejs.org/examples/textures/planets/earth_atmos_2048.jpg', earthTexFallback),
-    loadRemoteTexture('https://threejs.org/examples/textures/planets/moon_1024.jpg', moonTexFallback)
-  ]).then(([eTex, mTex]) => {
-    if (eTex && eTex !== earthTexFallback && planetMeshes.length){
-      const earthMesh = planetMeshes.find(m => m.userData.name === 'earth');
-      if (earthMesh){
-        earthMesh.material.map = eTex;
-        earthMesh.material.needsUpdate = true;
+  // 程序化兜底
+  const fallbackTextures = {
+    earth: createEarthTexture(),
+    moon:  createMoonTexture()
+  };
+  // 异步替换每个行星的贴图
+  Object.keys(TEX_URLS).forEach(name => {
+    const urls = TEX_URLS[name];
+    const fb = fallbackTextures[name] || null;
+    tryLoadTexture(urls, fb).then(tex => {
+      if (!tex) return;
+      const planet = planetMeshes.find(p => p.userData.name === name);
+      if (!planet) return;
+      planet.material.map = tex;
+      planet.material.needsUpdate = true;
+      if (name === 'earth' && planet.userData.moonMesh){
+        // 月亮用同一 loader 链异步加载
       }
-    }
-    if (mTex && mTex !== moonTexFallback && planetMeshes.length){
-      const earthMesh = planetMeshes.find(m => m.userData.name === 'earth');
-      if (earthMesh && earthMesh.userData.moonMesh){
-        earthMesh.userData.moonMesh.material.map = mTex;
-        earthMesh.userData.moonMesh.material.needsUpdate = true;
-      }
+    });
+  });
+  // 月亮：单独等 earth 加载完成后再绑定（同 fallback）
+  tryLoadTexture(TEX_URLS.moon, fallbackTextures.moon).then(tex => {
+    if (!tex) return;
+    const earth = planetMeshes.find(p => p.userData.name === 'earth');
+    if (earth && earth.userData.moonMesh){
+      earth.userData.moonMesh.material.map = tex;
+      earth.userData.moonMesh.material.needsUpdate = true;
     }
   });
+  // 兼容旧引用：保留这两个变量名供其它代码使用
+  const earthTex = fallbackTextures.earth;
+  const moonTex  = fallbackTextures.moon;
 
   // 相机控制状态（球面坐标：yaw 绕 Y 轴、pitch 仰角、distance 距离）
-  let yaw = 0, pitch = 0.05, distance = 90;
-  let targetYaw = 0, targetPitch = 0.05, targetDistance = 90, targetFOV = 60;
+  let yaw = 0, pitch = 0.05, distance = 12;  // 默认距离改为 12：贴近地球（轨道半径）
+  let targetYaw = 0, targetPitch = 0.05, targetDistance = 12, targetFOV = 60;
   let isDragging = false, lastX = 0, lastY = 0;
+  // 默认相机聚焦在地球（用户要求"以地球为中心"）
+  let cameraTarget = { x: 12, y: 0, z: 0 };
+  let targetCameraTarget = { x: 12, y: 0, z: 0 };
   function applyCamera(){
+    // 找地球，更新 target（相机跟随地球缓慢公转，让地球始终在视野中心）
+    const earth = planetMeshes.find(p => p.userData.name === 'earth');
+    if (earth){
+      targetCameraTarget.x = earth.position.x;
+      targetCameraTarget.z = earth.position.z;
+    }
+    // 平滑过渡 camera target
+    cameraTarget.x += (targetCameraTarget.x - cameraTarget.x) * 0.05;
+    cameraTarget.z += (targetCameraTarget.z - cameraTarget.z) * 0.05;
     const cp = Math.cos(pitch);
-    camera.position.set(Math.sin(yaw)*cp*distance, Math.sin(pitch)*distance, Math.cos(yaw)*cp*distance);
-    camera.lookAt(0, 0, 0);
+    // 相机位置 = target + 球面偏移
+    camera.position.set(
+      cameraTarget.x + Math.sin(yaw)*cp*distance,
+      cameraTarget.y + Math.sin(pitch)*distance,
+      cameraTarget.z + Math.cos(yaw)*cp*distance
+    );
+    camera.lookAt(cameraTarget.x, cameraTarget.y, cameraTarget.z);
   }
 
   // 太阳 —— 程序化湍流着色器（无外部贴图）
@@ -1822,7 +1867,7 @@ const CHAPTERS = [
   const PLANETS = [
     { name:'mercury', r:0.42, d:6,  color:0xa39080, speed:4.15, axial:0.02, rough:0.6 },
     { name:'venus',   r:0.70, d:9,  color:0xe8c78a, speed:1.62, axial:0.005, cloud:0xd9b078 },
-    { name:'earth',   r:0.75, d:12, color:0x2c6cb8, speed:1.0,  axial:0.05, atm:true },
+    { name:'earth',   r:1.5, d:12, color:0x2c6cb8, speed:1.0,  axial:0.04, atm:true },
     { name:'mars',    r:0.55, d:15, color:0xb85a30, speed:0.53, axial:0.045, polar:0xeae0d0 },
     { name:'jupiter', r:2.2,  d:22, color:0xc8a878, speed:0.084, axial:0.12, bands:true },
     { name:'saturn',  r:1.9,  d:27, color:0xe8d18a, speed:0.034, axial:0.11, rings:true },
@@ -1832,13 +1877,19 @@ const CHAPTERS = [
   const planetMeshes = [];
   const planetOrbits = [];
 
+  // 全局光照：环境光（柔光底）+ 太阳方向光（让行星近看有真实明暗）
+  const sunLight = new T.PointLight(0xfff0d0, 2.0, 0, 0);
+  sunLight.position.set(0, 0, 0);
+  scene.add(sunLight);
+  scene.add(new T.AmbientLight(0x404060, 0.45));
+
   PLANETS.forEach((p) => {
     let mat;
     if (p.name === 'earth'){
-      // 地球：真实程序化纹理（大陆/海洋/极冠/云层）
-      mat = new T.MeshBasicMaterial({ map: earthTex });
+      // 地球：Lambert 材质让 NASA 贴图有立体光照感
+      mat = new T.MeshLambertMaterial({ map: earthTex });
     } else if (p.name === 'mars'){
-      // 火星：简化锈红地表
+      // 火星：锈红程序化纹理 + Lambert 光照
       const cv = document.createElement('canvas');
       cv.width = cv.height = 256;
       const ctx = cv.getContext('2d');
@@ -1856,7 +1907,7 @@ const CHAPTERS = [
       }
       ctx.putImageData(img, 0, 0);
       const t = new T.CanvasTexture(cv); t.colorSpace = T.SRGBColorSpace;
-      mat = new T.MeshBasicMaterial({ map: t });
+      mat = new T.MeshLambertMaterial({ map: t });
     } else if (p.bands){
       // 木星：条带 shader
       mat = new T.ShaderMaterial({
@@ -1886,7 +1937,7 @@ const CHAPTERS = [
           }`
       });
     } else {
-      mat = new T.MeshBasicMaterial({ color: p.color });
+      mat = new T.MeshLambertMaterial({ color: p.color });
     }
     const m = new T.Mesh(new T.SphereGeometry(p.r, 64, 48), mat);
     m.userData = { ...p, angle: Math.random() * Math.PI * 2 };
@@ -1896,7 +1947,7 @@ const CHAPTERS = [
     // 月亮 + 卫星（地球专属）
     if (p.name === 'earth'){
       const moonOrbitR = p.r * 2.2;
-      const moonMat = new T.MeshBasicMaterial({ map: moonTex });
+      const moonMat = new T.MeshLambertMaterial({ map: moonTex });
       const moonMesh = new T.Mesh(new T.SphereGeometry(p.r * 0.27, 32, 24), moonMat);
       moonMesh.position.set(moonOrbitR, 0, 0);
       moonMesh.userData = { isMoon: true, moonAngle: 0, orbitR: moonOrbitR };
@@ -2221,7 +2272,8 @@ const CHAPTERS = [
   // 缩放：滚轮 + 双指
   c.addEventListener('wheel', e => {
     e.preventDefault();
-    targetDistance = Math.max(30, Math.min(120, targetDistance + e.deltaY * 0.06));
+    // 缩放范围拉宽：最近 4（贴近地球）→ 最远 140（看整个太阳系）
+    targetDistance = Math.max(4, Math.min(140, targetDistance + e.deltaY * 0.04));
   }, { passive: false });
   let pinchD0 = 0, pinchTar0 = 0;
   c.addEventListener('touchstart', e => {
@@ -2237,7 +2289,7 @@ const CHAPTERS = [
       const dx = e.touches[0].clientX - e.touches[1].clientX;
       const dy = e.touches[0].clientY - e.touches[1].clientY;
       const d = Math.hypot(dx, dy);
-      targetDistance = Math.max(30, Math.min(120, pinchTar0 * (pinchD0 / d)));
+      targetDistance = Math.max(4, Math.min(140, pinchTar0 * (pinchD0 / d)));
     }
   };
   c.addEventListener('touchmove', _spTouchMove, { passive: true });
@@ -2260,38 +2312,38 @@ const CHAPTERS = [
     planetMeshes.forEach(m => {
       if (m.material.uniforms && m.material.uniforms.uTime) m.material.uniforms.uTime.value = t;
       const d = m.userData;
-      // 公转：速度提升 8 倍，让外圈行星肉眼都能看到转动
-      d.angle += 0.4 * d.speed;
+      // 公转：速度大幅降低，体验感舒适（外圈行星也要慢，肉眼可看但不晕）
+      d.angle += 0.04 * d.speed;
       m.position.x = Math.cos(d.angle) * d.d;
       m.position.z = Math.sin(d.angle) * d.d;
       m.rotation.y += d.axial;
       // 月亮绕地球公转
       if (d.moonMesh){
-        d.moonMesh.userData.moonAngle += 0.08;
+        d.moonMesh.userData.moonAngle += 0.012;
         const ma = d.moonMesh.userData.moonAngle;
         const mr = d.moonMesh.userData.orbitR;
         d.moonMesh.position.set(Math.cos(ma) * mr, Math.sin(ma * 0.3) * mr * 0.15, Math.sin(ma) * mr);
-        d.moonMesh.rotation.y += 0.01;
+        d.moonMesh.rotation.y += 0.002;
       }
       // 卫星绕地球公转
       if (d.satellites){
         d.satellites.forEach(sat => {
-          sat.userData.angle += sat.userData.speed;
+          sat.userData.angle += sat.userData.speed * 0.5;
           const a = sat.userData.angle;
           const r = sat.userData.orbitR;
           sat.position.set(Math.cos(a) * r, Math.sin(a * 1.3) * r * 0.3 * sat.userData.tilt, Math.sin(a) * r);
-          sat.rotation.y += 0.05;
+          sat.rotation.y += 0.01;
         });
       }
     });
-    mainGalaxy.rotation.z = t * 0.03;
+    mainGalaxy.rotation.z = t * 0.012;
     mainGalaxy.scale.setScalar(1 + Math.sin(t*0.4)*0.025);
     // 远景星系各自缓慢自转
     for (let gi = 0; gi < distGalaxies.length; gi++){
-      distGalaxies[gi].rotation.z = t * 0.015 * (gi % 2 === 0 ? 1 : -1);
+      distGalaxies[gi].rotation.z = t * 0.008 * (gi % 2 === 0 ? 1 : -1);
     }
     // 小行星带缓慢公转
-    asteroids.rotation.y = t * 0.025;
+    asteroids.rotation.y = t * 0.015;
     // 自动相机推近：8 秒内 90→60
     if (t < 8 && targetDistance > 60) targetDistance = 90 - (t/8)*30;
     // 平滑插值
