@@ -404,34 +404,22 @@ img{-webkit-user-drag:none;user-drag:none;-webkit-touch-callout:none}
   50%{transform:translateY(-1px) scale(1.04);opacity:1}
 }
 
-/* ============ ch04 北海海风 —— 海浪浪花打过来 ============ */
+/* ============ ch04 北海海风 —— 文字柔和呼吸（移除浪花扫线，改为轻飘） ============ */
 .scene.ch04 .scene-text{position:relative}
 .scene.ch04 .scene-text::before{
-  content:'';position:absolute;left:-10%;top:50%;
-  width:0;height:2px;
-  background:linear-gradient(90deg,transparent,rgba(180,230,255,.9),transparent);
-  animation:ch04WaveSweep 4s ease-in-out infinite;
-  pointer-events:none;
+  display:none;
 }
 .scene.ch04 .scene-text .ch{
-  animation:ch04Wave 3.5s ease-in-out infinite;
-  color:rgba(235,245,255,.95);
-  text-shadow:0 0 12px rgba(140,200,255,.55), 0 0 26px rgba(120,180,220,.3);
+  animation:ch04Float 4.5s ease-in-out infinite;
+  color:rgba(245,250,255,.97);
+  text-shadow:0 0 14px rgba(180,220,255,.55), 0 0 28px rgba(120,180,220,.32);
 }
 .scene.ch04 .scene-text .ch:nth-child(2n){animation-delay:.4s}
 .scene.ch04 .scene-text .ch:nth-child(3n){animation-delay:.8s}
 .scene.ch04 .scene-text .ch:nth-child(4n){animation-delay:1.2s}
-@keyframes ch04Wave{
-  0%,100%{transform:translateY(2px);opacity:.82}
-  25%{transform:translateY(-1px);opacity:1}
-  50%{transform:translateY(-3px) translateX(0);opacity:1}
-  75%{transform:translateY(0);opacity:.92}
-}
-@keyframes ch04WaveSweep{
-  0%{left:-10%;width:0;opacity:0}
-  20%{opacity:1}
-  60%{width:120%;left:-10%;opacity:1}
-  100%{width:120%;left:120%;opacity:0}
+@keyframes ch04Float{
+  0%,100%{transform:translateY(0);opacity:.92}
+  50%{transform:translateY(-2px);opacity:1}
 }
 
 /* ============ ch05 那年毕业 —— 花瓣飘落字符 ============ */
@@ -1069,19 +1057,22 @@ img{-webkit-user-drag:none;user-drag:none;-webkit-touch-callout:none}
   filter:blur(8px);
 }
 
-/* ch04 —— 北海海风 */
+/* ch04 —— 北海海风：背景 = 真实海滩图片，叠加海面雾气 */
 .scene.ch04 .scene-bg{
-  background:linear-gradient(180deg,#0a3060 0%,#1a5080 50%,#2a7090 100%);
+  background:url('bg-images/04-beach.jpg') center/cover no-repeat;
+  background-color:#4a8eb0;  /* 兜底色：海天蓝 */
 }
 .scene.ch04 .scene-deco::before{
-  content:'';position:absolute;bottom:0;left:0;right:0;height:55%;
-  background:linear-gradient(180deg,transparent 0%,rgba(20,80,120,.5) 50%,#062840 100%);
+  content:'';position:absolute;inset:0;pointer-events:none;
+  background:
+    linear-gradient(180deg,rgba(160,210,230,.18) 0%,transparent 30%,transparent 65%,rgba(220,200,170,.22) 100%);
 }
 .scene.ch04 .scene-deco::after{
-  content:'';position:absolute;top:20%;left:0;right:0;height:8px;
-  background:linear-gradient(90deg,transparent,rgba(255,255,255,.4) 50%,transparent);
+  /* 海面粼光细线，远景 */
+  content:'';position:absolute;bottom:18%;left:0;right:0;height:6px;
+  background:linear-gradient(90deg,transparent 5%,rgba(255,235,200,.55) 50%,transparent 95%);
   animation:ch04Shine 4s ease-in-out infinite;
-  filter:blur(3px);
+  filter:blur(2px);
 }
 @keyframes ch04Shine{0%,100%{transform:translateY(0);opacity:.3}50%{transform:translateY(15px);opacity:.8}}
 
@@ -2470,13 +2461,21 @@ const CHAPTERS = [
     window.removeEventListener('pointercancel', _spUp);
     window.removeEventListener('resize', _spResize);
     c.removeEventListener('touchmove', _spTouchMove);
-    // 释放场景所有几何/材质 + 渲染器
+    // 释放场景所有几何/材质/贴图 + 渲染器
     renderer.renderLists.dispose();
+    const _disposedTexs = new Set();
     scene.traverse(obj => {
       if (obj.geometry) obj.geometry.dispose && obj.geometry.dispose();
       if (obj.material) {
-        if (Array.isArray(obj.material)) obj.material.forEach(m => m.dispose && m.dispose());
-        else obj.material.dispose && obj.material.dispose();
+        const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
+        for (const mm of mats){
+          mm.dispose && mm.dispose();
+          for (const k of ['map','normalMap','aoMap','roughnessMap','emissiveMap','alphaMap']){
+            if (mm[k] && !_disposedTexs.has(mm[k])){
+              try { mm[k].dispose(); _disposedTexs.add(mm[k]); } catch(e){}
+            }
+          }
+        }
       }
     });
     renderer.dispose();
@@ -5127,29 +5126,60 @@ function startChapterThree(sceneEl, ch){
       objs.push({ kind:'lantern-glow', mesh: h, parent: s });
     }
   } else if (fx === 'wave'){
-    // ch04 北海海风：海面波浪（顶点位移）—— 放在文字背后作氛围背景
-    // 波浪位于下半屏、压暗透明，让 .scene-info 文字叠在浪上随波飘荡
-    const geo = new THREE.PlaneGeometry(34, 20, 40, 20);
-    geo.rotateX(-Math.PI/2);
-    const mat = new THREE.MeshBasicMaterial({ color: 0x16405e, transparent: true, opacity: 0.35, wireframe: false });
-    const sea = new THREE.Mesh(geo, mat);
-    sea.position.set(0, -4.2, -3);
-    threeScene.add(sea);
-    objs.push({ kind:'wave', mesh: sea, geo });
-    // 第二层浪：更靠前更低，错开节奏形成层次
-    const geo2 = new THREE.PlaneGeometry(30, 18, 36, 18);
-    geo2.rotateX(-Math.PI/2);
-    const mat2 = new THREE.MeshBasicMaterial({ color: 0x2a6a92, transparent: true, opacity: 0.22, wireframe: false });
-    const sea2 = new THREE.Mesh(geo2, mat2);
-    sea2.position.set(0, -5.4, 1);
-    threeScene.add(sea2);
-    objs.push({ kind:'wave', mesh: sea2, geo: geo2, phase: 2.1 });
-    // 远处水平线
-    const hgeo = new THREE.PlaneGeometry(44, 0.02, 1, 1);
-    const hmat = new THREE.MeshBasicMaterial({ color: 0x88c0e8, transparent: true, opacity: 0.4 });
-    const hor = new THREE.Mesh(hgeo, hmat);
-    hor.position.set(0, 0.5, -14);
-    threeScene.add(hor);
+    // ch04 北海海风：替换为「气泡上升 + 海面粼光 + 远处海鸥剪影」
+    // 替代原本突兀的波浪顶点动画，让背景更贴近真实海景
+    // 1) 气泡粒子：从下往上漂浮，柔和白色透明
+    const N = 38;
+    const bubGeo = new THREE.BufferGeometry();
+    const bubPos = new Float32Array(N * 3);
+    const bubVy = new Float32Array(N);
+    const bubPhase = new Float32Array(N);
+    for (let i = 0; i < N; i++){
+      bubPos[i*3]   = (Math.random()-0.5) * 22;
+      bubPos[i*3+1] = (Math.random()-0.5) * 12 - 3;
+      bubPos[i*3+2] = (Math.random()-0.5) * 6 - 4;
+      bubVy[i] = 0.04 + Math.random() * 0.06;
+      bubPhase[i] = Math.random() * Math.PI * 2;
+    }
+    bubGeo.setAttribute('position', new THREE.BufferAttribute(bubPos, 3));
+    const bubMat = new THREE.PointsMaterial({ color: 0xffffff, size: 0.18, transparent: true, opacity: 0.55, depthWrite: false, blending: T.AdditiveBlending });
+    const bubbles = new THREE.Points(bubGeo, bubMat);
+    threeScene.add(bubbles);
+    objs.push({ kind:'bubbles3d', mesh: bubbles, geo: bubGeo, vy: bubVy, phase: bubPhase });
+    // 2) 海面粼光：底部一圈暖色光斑（GPU 粒子在水面闪烁）
+    const SP = 60;
+    const spGeo = new THREE.BufferGeometry();
+    const spPos = new Float32Array(SP * 3);
+    const spPh = new Float32Array(SP);
+    for (let i = 0; i < SP; i++){
+      spPos[i*3]   = (Math.random()-0.5) * 26;
+      spPos[i*3+1] = -5.0 + (Math.random()-0.5) * 0.4;
+      spPos[i*3+2] = -10 + Math.random() * 12;
+      spPh[i] = Math.random() * Math.PI * 2;
+    }
+    spGeo.setAttribute('position', new THREE.BufferAttribute(spPos, 3));
+    const spMat = new THREE.PointsMaterial({ color: 0xffe9b8, size: 0.22, transparent: true, opacity: 0.9, depthWrite: false, blending: T.AdditiveBlending });
+    const sparkle = new THREE.Points(spGeo, spMat);
+    threeScene.add(sparkle);
+    objs.push({ kind:'sparkle3d', mesh: sparkle, geo: spGeo, phase: spPh });
+    // 3) 远处海鸥剪影（2 只，沿水平线滑翔）
+    for (let gi = 0; gi < 2; gi++){
+      const gullGroup = new T.Group();
+      // 用两条 BufferGeometry 模拟海鸥双翼
+      const wing = new Float32Array([
+        -0.5, 0, 0,  0.0, 0.05, 0,
+        0.0, 0.05, 0,  0.5, 0, 0
+      ]);
+      const wGeo = new THREE.BufferGeometry();
+      wGeo.setAttribute('position', new THREE.BufferAttribute(wing, 3));
+      const wMat = new THREE.LineBasicMaterial({ color: 0x1a2a38, transparent: true, opacity: 0.65 });
+      const w = new THREE.LineSegments(wGeo, wMat);
+      gullGroup.add(w);
+      gullGroup.position.set(-8 + gi*4, 1.5 + gi*0.6, -9 - gi);
+      gullGroup.userData = { baseX: gullGroup.position.x, dir: gi === 0 ? 1 : -1, flap: Math.random()*Math.PI*2 };
+      threeScene.add(gullGroup);
+      objs.push({ kind:'gull', mesh: gullGroup });
+    }
   } else if (fx === 'petal'){
     // ch05 那年毕业：樱花瓣粒子
     const N = 90;
@@ -5272,15 +5302,33 @@ function startChapterThree(sceneEl, ch){
       } else if (o.kind === 'lantern-glow'){
         o.mesh.position.copy(o.parent.position);
         o.mesh.material.opacity = 0.15 + 0.05 * Math.sin(ts*1.5);
-      } else if (o.kind === 'wave'){
-        const ph = o.phase || 0;
-        const pos = o.geo.attributes.position.array;
-        for (let i = 0; i < pos.length; i += 3){
-          const x = pos[i], z = pos[i+2];
-          pos[i+1] = Math.sin(x*0.35 + ts*1.4 + ph) * 0.4 + Math.cos(z*0.28 + ts*1.1 + ph) * 0.3;
+      } else if (o.kind === 'bubbles3d'){
+        const arr = o.geo.attributes.position.array;
+        for (let i = 0; i < arr.length; i += 3){
+          arr[i+1] += o.vy[i/3];
+          arr[i]   += Math.sin(ts*1.2 + o.phase[i/3]) * 0.006;
+          if (arr[i+1] > 7){
+            arr[i+1] = -7;
+            arr[i] = (Math.random()-0.5) * 22;
+          }
         }
         o.geo.attributes.position.needsUpdate = true;
-        o.mesh.position.y = (o.mesh.userData.baseY ??= o.mesh.position.y) + Math.sin(ts*0.8 + ph) * 0.18;
+        o.mesh.material.opacity = 0.45 + Math.sin(ts*0.7) * 0.1;
+      } else if (o.kind === 'sparkle3d'){
+        const arr = o.geo.attributes.position.array;
+        for (let i = 0; i < arr.length; i += 3){
+          // 每个光斑轻微上下漂移（粼光闪烁）
+          arr[i+1] = -5.0 + Math.sin(ts*2.0 + o.phase[i/3]) * 0.18;
+        }
+        o.geo.attributes.position.needsUpdate = true;
+        o.mesh.material.opacity = 0.6 + Math.abs(Math.sin(ts*1.4)) * 0.4;
+      } else if (o.kind === 'gull'){
+        // 海鸥滑翔：缓慢左右飘，翅膀扇动（y 缩放模拟）
+        const d = o.mesh.userData;
+        d.flap += 0.06;
+        o.mesh.scale.y = 0.7 + Math.abs(Math.sin(d.flap)) * 0.5;
+        o.mesh.position.x = d.baseX + Math.sin(ts*0.25 + d.flap) * 3.5 * d.dir;
+        o.mesh.position.y += Math.sin(ts*0.4 + d.flap) * 0.002;
       } else if (o.kind === 'petal3d'){
         const arr = o.geo.attributes.position.array;
         for (let i = 0; i < arr.length; i += 3){
@@ -5320,14 +5368,22 @@ function startChapterThree(sceneEl, ch){
       stop = true;
       cancelAnimationFrame(raf);
       window.removeEventListener('resize', onResize);
-      // 释放场景里的 geometry / material（renderer.dispose 不递归）
+      // 释放场景里的 geometry / material / texture（renderer.dispose 不递归）
+      const _disposedTexs = new Set();
       try {
         threeScene.traverse(obj => {
           if (obj.geometry) obj.geometry.dispose();
           if (obj.material){
-            const m = obj.material;
-            if (Array.isArray(m)) m.forEach(mm => mm.dispose());
-            else m.dispose();
+            const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
+            for (const mm of mats){
+              mm.dispose();
+              // 释放 material 持有的 map（CanvasTexture / TextureLoader 贴图）
+              for (const k of ['map','normalMap','aoMap','roughnessMap','emissiveMap','alphaMap']){
+                if (mm[k] && !_disposedTexs.has(mm[k])){
+                  try { mm[k].dispose(); _disposedTexs.add(mm[k]); } catch(e){}
+                }
+              }
+            }
           }
         });
         renderer.dispose();
@@ -6723,7 +6779,14 @@ function startChapterFx(scene, ch){
   } else if (fx === 'meteor'){
     for (let i=0;i<count(20);i++) state.particles.push({x:Math.random(),y:Math.random()*.5,vx:rand(.002,.005),vy:rand(.001,.003)});
   } else if (fx === 'wave'){
+    // ch04 北海：2D 层加海鸥 + 气泡（和 3D 层呼应，不做波浪顶点）
     state.phase = 0;
+    for (let i = 0; i < 12; i++){
+      state.particles.push({x:rand(0,1), y:rand(0.4,1), vy:rand(-.0006,-.0002), vx:rand(-.0004,.0004), ph:rand(0,6.28), sz:rand(2,5), a:rand(.25,.55), isSeagull: true});
+    }
+    for (let i = 0; i < 18; i++){
+      state.particles.push({x:rand(0,1), y:rand(0,1), vy:rand(-.0008,-.0003), ph:rand(0,6.28), r:rand(1.5,3.5), a:rand(.4,.7), isBubble: true});
+    }
   } else if (fx === 'petal'){
     for (let i=0;i<count(22);i++) state.particles.push({x:Math.random(),y:Math.random(),vy:rand(.0004,.0014),vx:rand(-.0004,.0004),rot:rand(0,6.28),vrot:rand(-.008,.008),sz:rand(5,9),hue:rand(330,360)});
   } else if (fx === 'rose'){
@@ -6770,18 +6833,43 @@ function startChapterFx(scene, ch){
         ctx2.beginPath();ctx2.moveTo(x1,y1);ctx2.lineTo(x0,y0);ctx2.stroke();
       });
     } else if (fx === 'wave'){
-      ctx2.strokeStyle = 'rgba(180,220,255,.4)';
-      ctx2.lineWidth = 1.2;
-      const tt = t*.001;
-      for (let row=0;row<6;row++){
-        ctx2.beginPath();
-        const y0 = h*(.5+row*.07);
-        for (let x=0;x<=w;x+=8){
-          const y = y0 + Math.sin(x*.02-tt*2+row*.5)*5 + Math.sin(x*.01+tt)*3;
-          if (x===0)ctx2.moveTo(x,y);else ctx2.lineTo(x,y);
-        }
-        ctx2.stroke();
+    // ch04 北海：绘制远处海鸥剪影 + 上升气泡（去掉波浪线）
+    state.particles.forEach(p => {
+      // 推进位置（海鸥缓慢漂 / 气泡上升）
+      p.y += p.vy || 0;
+      p.x += p.vx || 0;
+      if (p.isBubble && p.y < -0.05){
+        p.y = 1.05; p.x = Math.random();
       }
+      if (p.isSeagull && (p.x < -0.1 || p.x > 1.1)){
+        p.y = Math.random()*0.4 + 0.3;
+        if (p.vx < 0) p.x = 1.05; else p.x = -0.05;
+      }
+      const x = p.x*w, y = p.y*h;
+      if (p.isSeagull){
+        // 海鸥：双翼弧线
+        const flap = Math.sin(p.ph + t*.004) * 4;
+        ctx2.strokeStyle = `rgba(50,55,68,${p.a})`;
+        ctx2.lineWidth = 1.6;
+        ctx2.beginPath();
+        ctx2.moveTo(x-7, y-flap); ctx2.quadraticCurveTo(x-3, y-flap-2, x, y);
+        ctx2.quadraticCurveTo(x+3, y-flap-2, x+7, y-flap);
+        ctx2.stroke();
+      } else if (p.isBubble){
+        // 气泡：白圆 + 高光
+        ctx2.fillStyle = `rgba(255,255,255,${p.a*0.6})`;
+        ctx2.strokeStyle = `rgba(220,240,255,${p.a})`;
+        ctx2.lineWidth = 0.8;
+        ctx2.beginPath();
+        ctx2.arc(x, y, p.r, 0, Math.PI*2);
+        ctx2.fill(); ctx2.stroke();
+        // 高光
+        ctx2.fillStyle = `rgba(255,255,255,${p.a*0.9})`;
+        ctx2.beginPath();
+        ctx2.arc(x-p.r*0.35, y-p.r*0.35, p.r*0.3, 0, Math.PI*2);
+        ctx2.fill();
+      }
+    });
     } else if (fx === 'petal'){
       const tt=t*.001;
       state.particles.forEach(p => {
