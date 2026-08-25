@@ -5142,7 +5142,7 @@ function startChapterThree(sceneEl, ch){
       bubPhase[i] = Math.random() * Math.PI * 2;
     }
     bubGeo.setAttribute('position', new THREE.BufferAttribute(bubPos, 3));
-    const bubMat = new THREE.PointsMaterial({ color: 0xffffff, size: 0.18, transparent: true, opacity: 0.55, depthWrite: false, blending: T.AdditiveBlending });
+    const bubMat = new THREE.PointsMaterial({ color: 0xffffff, size: 0.18, transparent: true, opacity: 0.55, depthWrite: false, blending: THREE.AdditiveBlending });
     const bubbles = new THREE.Points(bubGeo, bubMat);
     threeScene.add(bubbles);
     objs.push({ kind:'bubbles3d', mesh: bubbles, geo: bubGeo, vy: bubVy, phase: bubPhase });
@@ -5158,13 +5158,13 @@ function startChapterThree(sceneEl, ch){
       spPh[i] = Math.random() * Math.PI * 2;
     }
     spGeo.setAttribute('position', new THREE.BufferAttribute(spPos, 3));
-    const spMat = new THREE.PointsMaterial({ color: 0xffe9b8, size: 0.22, transparent: true, opacity: 0.9, depthWrite: false, blending: T.AdditiveBlending });
+    const spMat = new THREE.PointsMaterial({ color: 0xffe9b8, size: 0.22, transparent: true, opacity: 0.9, depthWrite: false, blending: THREE.AdditiveBlending });
     const sparkle = new THREE.Points(spGeo, spMat);
     threeScene.add(sparkle);
     objs.push({ kind:'sparkle3d', mesh: sparkle, geo: spGeo, phase: spPh });
     // 3) 远处海鸥剪影（2 只，沿水平线滑翔）
     for (let gi = 0; gi < 2; gi++){
-      const gullGroup = new T.Group();
+      const gullGroup = new THREE.Group();
       // 用两条 BufferGeometry 模拟海鸥双翼
       const wing = new Float32Array([
         -0.5, 0, 0,  0.0, 0.05, 0,
