@@ -1545,6 +1545,211 @@ const CHAPTERS = [
   camera.position.set(0, 8, 90);
   camera.lookAt(0, 0, 0);
 
+  // ============ 工具：圆形粒子 sprite 纹理（消除 Points 默认方块） ============
+  function createSpriteTexture(color1, color2){
+    const sz = 128;
+    const cv = document.createElement('canvas');
+    cv.width = cv.height = sz;
+    const ctx = cv.getContext('2d');
+    const g = ctx.createRadialGradient(sz/2, sz/2, 0, sz/2, sz/2, sz/2);
+    g.addColorStop(0,    color1);
+    g.addColorStop(0.35, color1);
+    g.addColorStop(0.7,  color2);
+    g.addColorStop(1,    'rgba(0,0,0,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, sz, sz);
+    const t = new T.CanvasTexture(cv);
+    t.colorSpace = T.SRGBColorSpace;
+    return t;
+  }
+  // 三种 sprite：亮星 / 暖星 / 蓝紫星（让银河粒子有渐变光晕，不再是方块）
+  const spriteBright = createSpriteTexture('rgba(255,255,255,1)', 'rgba(255,240,250,0.7)');
+  const spriteWarm   = createSpriteTexture('rgba(255,220,170,1)', 'rgba(255,180,120,0.5)');
+  const spritePurple = createSpriteTexture('rgba(200,170,255,1)', 'rgba(160,120,255,0.5)');
+  const spritePink   = createSpriteTexture('rgba(255,180,220,1)', 'rgba(255,140,200,0.6)');
+
+  // ============ 工具：程序化生成行星纹理（无需外部资源） ============
+  // value-noise 多倍频叠加 → 真实地表细节
+  function _noise2D(seed){
+    // 简易 value noise，足够生成逼真的大陆/海洋/月坑
+    const perm = [];
+    let s = seed * 9301 + 49297;
+    for (let i = 0; i < 256; i++){
+      s = (s * 9301 + 49297) % 233280;
+      perm.push(s / 233280);
+    }
+    return (x, y) => {
+      const xi = Math.floor(x) & 255, yi = Math.floor(y) & 255;
+      const xf = x - Math.floor(x), yf = y - Math.floor(y);
+      const u = xf*xf*(3-2*xf), v = yf*yf*(3-2*yf);
+      const aa = perm[(xi + yi*73) & 255];
+      const ab = perm[(xi + 1 + yi*73) & 255];
+      const ba = perm[(xi + (yi+1)*73) & 255];
+      const bb = perm[(xi + 1 + (yi+1)*73) & 255];
+      return (aa*(1-u)*(1-v) + ab*u*(1-v) + ba*(1-u)*v + bb*u*v);
+    };
+  }
+  function _fbm(noiseFn, x, y, oct){
+    let v = 0, amp = 1, freq = 1, total = 0;
+    for (let i = 0; i < oct; i++){
+      v += noiseFn(x*freq, y*freq) * amp;
+      total += amp;
+      amp *= 0.5; freq *= 2;
+    }
+    return v / total;
+  }
+  function createEarthTexture(){
+    const W = 1024, H = 512;
+    const cv = document.createElement('canvas');
+    cv.width = W; cv.height = H;
+    const ctx = cv.getContext('2d');
+    const n = _noise2D(42);
+    const img = ctx.createImageData(W, H);
+    const d = img.data;
+    for (let y = 0; y < H; y++){
+      // 用球面坐标 u,v → noise 采样：避免两极拉长
+      const v = y / H;
+      const lat = (v - 0.5) * Math.PI;
+      const sinLat = Math.sin(lat);
+      const cosLat = Math.cos(lat);
+      for (let x = 0; x < W; x++){
+        const u = x / W;
+        const lon = (u - 0.5) * Math.PI * 2;
+        // 三维坐标 → 多倍频 fbm
+        const px = Math.cos(lon) * cosLat * 3;
+        const py = sinLat * 3;
+        const pz = Math.sin(lon) * cosLat * 3;
+        const h = _fbm(n, px, py, 6);
+        const i = (y * W + x) * 4;
+        let r, g, b;
+        if (h < 0.50){
+          // 深海 → 浅海
+          const t = h / 0.50;
+          r = 10 + t*30; g = 40 + t*60; b = 110 + t*60;
+        } else if (h < 0.52){
+          // 海岸线
+          r = 220; g = 200; b = 150;
+        } else if (h < 0.75){
+          // 陆地：森林 / 草原 / 沙漠
+          const t = (h - 0.52) / 0.23;
+          if (t < 0.4){      r = 50 + t*40; g = 95 + t*40; b = 45 + t*30; }
+          else if (t < 0.75){ r = 100; g = 130; b = 60; }
+          else                { r = 200; g = 175; b = 110; }
+        } else {
+          // 高山雪线
+          const t = (h - 0.75) / 0.25;
+          r = 220 + t*30; g = 220 + t*30; b = 230 + t*25;
+        }
+        // 极地冰盖
+        const polar = Math.abs(v - 0.5) > 0.42 ? (Math.abs(v-0.5) - 0.42) / 0.08 : 0;
+        if (polar > 0){
+          r = r*(1-polar) + 245*polar;
+          g = g*(1-polar) + 248*polar;
+          b = b*(1-polar) + 252*polar;
+        }
+        // 云层（更高频白雾）
+        const cloud = _fbm(n, px*1.4 + 5.5, py*1.4 + 5.5, 4);
+        if (cloud > 0.62){
+          const a = Math.min(1, (cloud - 0.62) / 0.25) * 0.55;
+          r = r*(1-a) + 250*a;
+          g = g*(1-a) + 252*a;
+          b = b*(1-a) + 255*a;
+        }
+        d[i] = r|0; d[i+1] = g|0; d[i+2] = b|0; d[i+3] = 255;
+      }
+    }
+    ctx.putImageData(img, 0, 0);
+    const tex = new T.CanvasTexture(cv);
+    tex.colorSpace = T.SRGBColorSpace;
+    tex.anisotropy = 4;
+    return tex;
+  }
+  function createMoonTexture(){
+    const W = 1024, H = 512;
+    const cv = document.createElement('canvas');
+    cv.width = W; cv.height = H;
+    const ctx = cv.getContext('2d');
+    const n = _noise2D(7);
+    const img = ctx.createImageData(W, H);
+    const d = img.data;
+    for (let y = 0; y < H; y++){
+      const v = y / H;
+      const lat = (v - 0.5) * Math.PI;
+      const sinLat = Math.sin(lat), cosLat = Math.cos(lat);
+      for (let x = 0; x < W; x++){
+        const u = x / W;
+        const lon = (u - 0.5) * Math.PI * 2;
+        const px = Math.cos(lon)*cosLat*4, py = sinLat*4, pz = Math.sin(lon)*cosLat*4;
+        // 月海（大块暗斑）
+        const mare = _fbm(n, px*0.4, py*0.4, 4);
+        // 月坑（高频暗点 + 边缘亮环）
+        const crater = _fbm(n, px*8 + 13, py*8 + 13, 3);
+        const detail = _fbm(n, px*16, py*16, 3);
+        const base = 0.55 + mare*0.35;
+        let gray = base - (crater > 0.72 ? (crater - 0.72) * 2 : 0);
+        gray -= detail * 0.18;
+        gray = Math.max(0.18, Math.min(0.95, gray));
+        const c = (gray * 255)|0;
+        const i = (y * W + x) * 4;
+        // 月海带轻微蓝色调（玄武岩）
+        const isMare = mare < 0.45;
+        d[i]   = isMare ? (c*0.92)|0 : c;
+        d[i+1] = isMare ? (c*0.94)|0 : c;
+        d[i+2] = isMare ? (c*1.00)|0 : (c*0.96)|0;
+        d[i+3] = 255;
+      }
+    }
+    ctx.putImageData(img, 0, 0);
+    const tex = new T.CanvasTexture(cv);
+    tex.colorSpace = T.SRGBColorSpace;
+    tex.anisotropy = 4;
+    return tex;
+  }
+  // ============ 真实 NASA 贴图加载（地球 + 月亮），失败回退到程序化 ============
+  // Three.js examples 公开 CORS 资源，可在浏览器直接跨域加载
+  function loadRemoteTexture(url, fallback){
+    const tex = new T.TextureLoader().load(
+      url,
+      t => { t.colorSpace = T.SRGBColorSpace; t.anisotropy = 4; t.needsUpdate = true; },
+      undefined,
+      () => { console.warn('[splash] 远程贴图失败，使用程序化纹理:', url); }
+    );
+    // 加载失败时用 fallback canvas texture
+    return new Promise(resolve => {
+      tex.onUpdate = () => resolve(tex);
+      // 200ms 内若没 onUpdate 则用 fallback
+      setTimeout(() => {
+        if (!tex.image) resolve(fallback);
+        else resolve(tex);
+      }, 1500);
+    });
+  }
+  // 先用程序化纹理兜底，远程加载成功后替换
+  const earthTexFallback = createEarthTexture();
+  const moonTexFallback  = createMoonTexture();
+  const earthTex = earthTexFallback;
+  const moonTex  = moonTexFallback;
+  // 异步尝试加载真实 NASA / Three.js 公开纹理
+  Promise.all([
+    loadRemoteTexture('https://threejs.org/examples/textures/planets/earth_atmos_2048.jpg', earthTexFallback),
+    loadRemoteTexture('https://threejs.org/examples/textures/planets/moon_1024.jpg', moonTexFallback)
+  ]).then(([eTex, mTex]) => {
+    if (eTex && eTex !== earthTexFallback && planetMeshes.length){
+      const earthMesh = planetMeshes.find(m => m.userData.name === 'earth');
+      if (earthMesh){
+        earthMesh.material.map = eTex;
+        earthMesh.material.needsUpdate = true;
+      }
+    }
+    if (mTex && mTex !== moonTexFallback && planetMeshes.length){
+      const earthMesh = planetMeshes.find(m => m.userData.name === 'earth');
+      if (earthMesh && earthMesh.userData.moonMesh){
+        earthMesh.userData.moonMesh.material.map = mTex;
+        earthMesh.userData.moonMesh.material.needsUpdate = true;
+      }
+    }
+  });
+
   // 相机控制状态（球面坐标：yaw 绕 Y 轴、pitch 仰角、distance 距离）
   let yaw = 0, pitch = 0.05, distance = 90;
   let targetYaw = 0, targetPitch = 0.05, targetDistance = 90, targetFOV = 60;
@@ -1629,7 +1834,30 @@ const CHAPTERS = [
 
   PLANETS.forEach((p) => {
     let mat;
-    if (p.bands){
+    if (p.name === 'earth'){
+      // 地球：真实程序化纹理（大陆/海洋/极冠/云层）
+      mat = new T.MeshBasicMaterial({ map: earthTex });
+    } else if (p.name === 'mars'){
+      // 火星：简化锈红地表
+      const cv = document.createElement('canvas');
+      cv.width = cv.height = 256;
+      const ctx = cv.getContext('2d');
+      const img = ctx.createImageData(256, 256); const d = img.data;
+      for (let y = 0; y < 256; y++){
+        for (let x = 0; x < 256; x++){
+          const i = (y*256+x)*4;
+          const n = Math.sin(x*0.05)*Math.cos(y*0.05) + Math.sin(x*0.13+y*0.17)*0.5;
+          const v = (n*0.5 + 0.5);
+          d[i]   = (160 + v*70)|0;
+          d[i+1] = (60 + v*40)|0;
+          d[i+2] = (30 + v*30)|0;
+          d[i+3] = 255;
+        }
+      }
+      ctx.putImageData(img, 0, 0);
+      const t = new T.CanvasTexture(cv); t.colorSpace = T.SRGBColorSpace;
+      mat = new T.MeshBasicMaterial({ map: t });
+    } else if (p.bands){
       // 木星：条带 shader
       mat = new T.ShaderMaterial({
         uniforms: { uTime:{value:0} },
@@ -1660,10 +1888,68 @@ const CHAPTERS = [
     } else {
       mat = new T.MeshBasicMaterial({ color: p.color });
     }
-    const m = new T.Mesh(new T.SphereGeometry(p.r, 48, 32), mat);
+    const m = new T.Mesh(new T.SphereGeometry(p.r, 64, 48), mat);
     m.userData = { ...p, angle: Math.random() * Math.PI * 2 };
     scene.add(m);
     planetMeshes.push(m);
+
+    // 月亮 + 卫星（地球专属）
+    if (p.name === 'earth'){
+      const moonOrbitR = p.r * 2.2;
+      const moonMat = new T.MeshBasicMaterial({ map: moonTex });
+      const moonMesh = new T.Mesh(new T.SphereGeometry(p.r * 0.27, 32, 24), moonMat);
+      moonMesh.position.set(moonOrbitR, 0, 0);
+      moonMesh.userData = { isMoon: true, moonAngle: 0, orbitR: moonOrbitR };
+      m.add(moonMesh);
+      m.userData.moonMesh = moonMesh;
+
+      // 月亮轨道细线
+      const moonOrbitGeo = new T.RingGeometry(moonOrbitR - 0.015, moonOrbitR + 0.015, 64, 1);
+      const moonOrbitMat = new T.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.06, side: T.DoubleSide });
+      const moonOrbit = new T.Mesh(moonOrbitGeo, moonOrbitMat);
+      moonOrbit.rotation.x = Math.PI / 2;
+      m.add(moonOrbit);
+
+      // 人造卫星：3 颗不同轨道
+      m.userData.satellites = [];
+      const satCount = 3;
+      for (let si = 0; si < satCount; si++){
+        // 卫星本体（小型长方体 + 太阳能板）
+        const satGroup = new T.Group();
+        const bodyMat = new T.MeshBasicMaterial({ color: 0xd0d4d8 });
+        const body = new T.Mesh(new T.BoxGeometry(0.06, 0.06, 0.10), bodyMat);
+        satGroup.add(body);
+        // 太阳能板
+        const panelMat = new T.MeshBasicMaterial({ color: 0x1a3a6c });
+        const panelL = new T.Mesh(new T.BoxGeometry(0.18, 0.08, 0.01), panelMat);
+        panelL.position.set(0.14, 0, 0);
+        const panelR = new T.Mesh(new T.BoxGeometry(0.18, 0.08, 0.01), panelMat);
+        panelR.position.set(-0.14, 0, 0);
+        satGroup.add(panelL); satGroup.add(panelR);
+        // 天线
+        const antMat = new T.MeshBasicMaterial({ color: 0xff5050 });
+        const ant = new T.Mesh(new T.SphereGeometry(0.015, 6, 4), antMat);
+        ant.position.set(0, 0.05, 0);
+        satGroup.add(ant);
+
+        const satOrbitR = p.r * (1.5 + si * 0.15);
+        const satAngle0 = Math.random() * Math.PI * 2;
+        const satTilt = (Math.random() - 0.5) * 0.6;  // 不同倾角
+        const satSpeed = 0.02 + Math.random() * 0.02;
+        satGroup.position.set(Math.cos(satAngle0) * satOrbitR, Math.sin(satAngle0 * 1.3) * p.r * 0.3, Math.sin(satAngle0) * satOrbitR);
+        satGroup.userData = { isSat: true, angle: satAngle0, orbitR: satOrbitR, tilt: satTilt, speed: satSpeed };
+        m.add(satGroup);
+        m.userData.satellites.push(satGroup);
+
+        // 卫星轨道细线（虚线感：用半透明细环）
+        const satOrbitGeo = new T.RingGeometry(satOrbitR - 0.008, satOrbitR + 0.008, 64, 1);
+        const satOrbitMat = new T.MeshBasicMaterial({ color: 0x88ccff, transparent: true, opacity: 0.18, side: T.DoubleSide });
+        const satOrbit = new T.Mesh(satOrbitGeo, satOrbitMat);
+        satOrbit.rotation.x = Math.PI / 2;
+        satOrbit.rotation.z = satTilt;
+        m.add(satOrbit);
+      }
+    }
 
     // 轨道细线
     const orbitGeo = new T.RingGeometry(p.d - 0.02, p.d + 0.02, 128, 1);
@@ -1714,49 +2000,156 @@ const CHAPTERS = [
     if (p.tilt) m.rotation.z = p.tilt;
   });
 
-  // 远景星系生成器
+  // 远景星系生成器（对数螺线臂 + 核球 + 尘埃带 + 多色温）
   function buildGalaxy(N, scaleR){
     const geo = new T.BufferGeometry();
     const pos = new T.Float32BufferAttribute(N*3, 3);
     const col = new T.Float32BufferAttribute(N*3, 3);
+    const siz = new T.Float32BufferAttribute(N, 1);
     const arms = 2;
+    const bulgeRatio = 0.18;   // 中央核球占比
     for (let i = 0; i < N; i++){
+      const isCore = Math.random() < bulgeRatio;
       const arm = i % arms;
-      const t = (i / N) * 5;
-      const angle = arm * Math.PI + t * Math.PI * 1.3 + (Math.random()-0.5)*0.45;
-      const r = t * scaleR * 0.18 + Math.random() * scaleR * 0.12;
-      pos.setXYZ(i, Math.cos(angle)*r, (Math.random()-0.5)*scaleR*0.05, Math.sin(angle)*r);
-      const hue = Math.random();
-      if (hue < 0.6){ col.setXYZ(i, 1.0, 0.7+Math.random()*0.2, 0.95); }
-      else if (hue < 0.85){ col.setXYZ(i, 0.7, 0.6, 1.0); }
-      else { col.setXYZ(i, 1.0, 0.85, 0.7); }
+      const t = Math.pow(Math.random(), 0.6);  // 偏向中心分布
+      // 对数螺线：r = a * exp(b * theta)
+      const baseAngle = arm * Math.PI + (isCore ? 0 : Math.log(1 + t*4) * 2.2);
+      const wobble = (Math.random()-0.5) * 0.5 * (1 - t * 0.5);  // 臂外散开
+      const angle = baseAngle + wobble;
+      // 半径：核心区短，外部按对数增长
+      let r;
+      if (isCore){
+        r = Math.random() * scaleR * 0.08;
+      } else {
+        r = (t * scaleR * 0.35) * (0.85 + Math.random()*0.3);
+      }
+      const yJitter = (Math.random()-0.5) * scaleR * (isCore ? 0.04 : 0.025);
+      pos.setXYZ(i, Math.cos(angle)*r, yJitter, Math.sin(angle)*r);
+      // 颜色：核心偏黄（老年星），臂上偏蓝白（年轻星）+ 红巨星（尘埃带）
+      let cr, cg, cb;
+      const cRand = Math.random();
+      if (isCore){
+        // 核球：暖黄
+        cr = 1.0; cg = 0.85 + Math.random()*0.1; cb = 0.55 + Math.random()*0.15;
+        siz.setX(i, 0.5 + Math.random()*0.4);
+      } else if (cRand < 0.55){
+        // 旋臂蓝白星
+        cr = 0.78; cg = 0.88; cb = 1.0;
+        siz.setX(i, 0.4 + Math.random()*0.3);
+      } else if (cRand < 0.85){
+        // 粉红星云（尘埃带）
+        cr = 1.0; cg = 0.6 + Math.random()*0.2; cb = 0.85;
+        siz.setX(i, 0.6 + Math.random()*0.6);
+      } else {
+        // 蓝紫
+        cr = 0.7; cg = 0.65; cb = 1.0;
+        siz.setX(i, 0.35 + Math.random()*0.25);
+      }
+      col.setXYZ(i, cr, cg, cb);
     }
     geo.setAttribute('position', pos);
     geo.setAttribute('color', col);
-    const mat = new T.PointsMaterial({
-      size: 0.7, vertexColors: true, transparent: true, opacity: 0.85,
-      blending: T.AdditiveBlending, depthWrite: false, sizeAttenuation: true
+    geo.setAttribute('size', siz);
+    // 用 ShaderMaterial：gl_PointCoord → 圆形 + 中心高光，解决正方形问题
+    const mat = new T.ShaderMaterial({
+      uniforms: {
+        uTex: { value: spriteBright },
+        uScale: { value: window.innerHeight * 0.5 / Math.tan((Math.PI/180)*30) }  // 像素补偿
+      },
+      vertexShader: `
+        attribute float size;
+        varying vec3 vCol;
+        uniform float uScale;
+        void main(){
+          vCol = color;
+          vec4 mv = modelViewMatrix * vec4(position, 1.0);
+          gl_Position = projectionMatrix * mv;
+          gl_PointSize = size * (uScale / -mv.z);
+        }
+      `,
+      fragmentShader: `
+        uniform sampler2D uTex;
+        varying vec3 vCol;
+        void main(){
+          vec4 t = texture2D(uTex, gl_PointCoord);
+          if (t.a < 0.02) discard;
+          gl_FragColor = vec4(vCol, 1.0) * t;
+        }
+      `,
+      transparent: true,
+      blending: T.AdditiveBlending,
+      depthWrite: false,
+      vertexColors: true
     });
     return new T.Points(geo, mat);
   }
 
-  const mainGalaxy = buildGalaxy(isMobile ? 1500 : 3500, 700);
+  const mainGalaxy = buildGalaxy(isMobile ? 1800 : 4000, 700);
   mainGalaxy.position.set(0, 30, -250);
   scene.add(mainGalaxy);
 
+  const distGalaxies = [];
   for (let i = 0; i < 3; i++){
-    const g = buildGalaxy(isMobile ? 300 : 800, 350);
+    const g = buildGalaxy(isMobile ? 350 : 900, 350);
     const a = (i/3)*Math.PI*2 + Math.random()*0.4;
     g.position.set(Math.cos(a)*520, (Math.random()-0.5)*120, Math.sin(a)*520 - 250);
     g.scale.setScalar(0.6);
     scene.add(g);
+    distGalaxies.push(g);
   }
 
-  // 星空多层视差
-  function buildStarfield(N, rmin, rmax){
+  // ============ 小行星带（火星 d=15 与木星 d=22 之间） ============
+  // 真实比例参考：Solarsystem-3D 仓库用 3200 颗粒子
+  const ASTEROID_COUNT = isMobile ? 600 : 1800;
+  const astGeo = new T.BufferGeometry();
+  const astPos = new T.Float32BufferAttribute(ASTEROID_COUNT * 3, 3);
+  const astSize = new T.Float32BufferAttribute(ASTEROID_COUNT, 1);
+  for (let i = 0; i < ASTEROID_COUNT; i++){
+    const a = Math.random() * Math.PI * 2;
+    const r = 17 + Math.random() * 4;   // 火星 15 → 木星 22 的中段
+    const yJit = (Math.random() - 0.5) * 0.4;
+    astPos.setXYZ(i, Math.cos(a) * r, yJit, Math.sin(a) * r);
+    astSize.setX(i, 0.06 + Math.random() * 0.12);
+  }
+  astGeo.setAttribute('position', astPos);
+  astGeo.setAttribute('size', astSize);
+  const astMat = new T.ShaderMaterial({
+    uniforms: {
+      uTex: { value: spriteWarm },
+      uScale: { value: window.innerHeight * 0.5 / Math.tan((Math.PI/180)*30) }
+    },
+    vertexShader: `
+      attribute float size;
+      varying vec3 vCol;
+      uniform float uScale;
+      void main(){
+        vCol = vec3(0.7, 0.55, 0.4);
+        vec4 mv = modelViewMatrix * vec4(position, 1.0);
+        gl_Position = projectionMatrix * mv;
+        gl_PointSize = size * (uScale / -mv.z);
+      }
+    `,
+    fragmentShader: `
+      uniform sampler2D uTex;
+      varying vec3 vCol;
+      void main(){
+        vec4 t = texture2D(uTex, gl_PointCoord);
+        if (t.a < 0.02) discard;
+        gl_FragColor = vec4(vCol, 1.0) * t * 0.7;
+      }
+    `,
+    transparent: true,
+    depthWrite: false
+  });
+  const asteroids = new T.Points(astGeo, astMat);
+  scene.add(asteroids);
+
+  // 星空多层视差（球面均匀分布 + sprite 圆形）
+  function buildStarfield(N, rmin, rmax, sprite){
     const geo = new T.BufferGeometry();
     const pos = new T.Float32BufferAttribute(N*3, 3);
     const col = new T.Float32BufferAttribute(N*3, 3);
+    const siz = new T.Float32BufferAttribute(N, 1);
     for (let i = 0; i < N; i++){
       const r = rmin + Math.random()*(rmax-rmin);
       const theta = Math.random()*Math.PI*2;
@@ -1766,17 +2159,46 @@ const CHAPTERS = [
       if (h < 0.55){ col.setXYZ(i, 1, 1, 1); }
       else if (h < 0.8){ col.setXYZ(i, 0.78, 0.85, 1); }
       else { col.setXYZ(i, 1, 0.85, 0.7); }
+      siz.setX(i, 0.3 + Math.random()*0.6);
     }
     geo.setAttribute('position', pos);
     geo.setAttribute('color', col);
-    return new T.Points(geo, new T.PointsMaterial({
-      size: 0.5, vertexColors: true, transparent: true, opacity: 0.9,
-      blending: T.AdditiveBlending, depthWrite: false, sizeAttenuation: true
-    }));
+    geo.setAttribute('size', siz);
+    const mat = new T.ShaderMaterial({
+      uniforms: {
+        uTex: { value: sprite },
+        uScale: { value: window.innerHeight * 0.5 / Math.tan((Math.PI/180)*30) }
+      },
+      vertexShader: `
+        attribute float size;
+        varying vec3 vCol;
+        uniform float uScale;
+        void main(){
+          vCol = color;
+          vec4 mv = modelViewMatrix * vec4(position, 1.0);
+          gl_Position = projectionMatrix * mv;
+          gl_PointSize = size * (uScale / -mv.z);
+        }
+      `,
+      fragmentShader: `
+        uniform sampler2D uTex;
+        varying vec3 vCol;
+        void main(){
+          vec4 t = texture2D(uTex, gl_PointCoord);
+          if (t.a < 0.02) discard;
+          gl_FragColor = vec4(vCol, 1.0) * t;
+        }
+      `,
+      transparent: true,
+      blending: T.AdditiveBlending,
+      depthWrite: false,
+      vertexColors: true
+    });
+    return new T.Points(geo, mat);
   }
-  scene.add(buildStarfield(isMobile?60:140, 80, 220));     // 前景
-  scene.add(buildStarfield(isMobile?100:220, 220, 520));   // 中景
-  scene.add(buildStarfield(isMobile?150:320, 520, 1200));  // 远景
+  scene.add(buildStarfield(isMobile?60:160, 80, 220, spriteBright));     // 前景白星
+  scene.add(buildStarfield(isMobile?100:240, 220, 520, spriteWarm));    // 中景暖星
+  scene.add(buildStarfield(isMobile?160:360, 520, 1200, spritePurple)); // 远景蓝紫
 
   // 拖拽旋转（pointer + touch 兼容）
   const _spMove = e => { onMove(e.clientX, e.clientY); };
@@ -1838,13 +2260,38 @@ const CHAPTERS = [
     planetMeshes.forEach(m => {
       if (m.material.uniforms && m.material.uniforms.uTime) m.material.uniforms.uTime.value = t;
       const d = m.userData;
-      d.angle += 0.05 * d.speed * 0.05; // 慢一点，方便观看
+      // 公转：速度提升 8 倍，让外圈行星肉眼都能看到转动
+      d.angle += 0.4 * d.speed;
       m.position.x = Math.cos(d.angle) * d.d;
       m.position.z = Math.sin(d.angle) * d.d;
       m.rotation.y += d.axial;
+      // 月亮绕地球公转
+      if (d.moonMesh){
+        d.moonMesh.userData.moonAngle += 0.08;
+        const ma = d.moonMesh.userData.moonAngle;
+        const mr = d.moonMesh.userData.orbitR;
+        d.moonMesh.position.set(Math.cos(ma) * mr, Math.sin(ma * 0.3) * mr * 0.15, Math.sin(ma) * mr);
+        d.moonMesh.rotation.y += 0.01;
+      }
+      // 卫星绕地球公转
+      if (d.satellites){
+        d.satellites.forEach(sat => {
+          sat.userData.angle += sat.userData.speed;
+          const a = sat.userData.angle;
+          const r = sat.userData.orbitR;
+          sat.position.set(Math.cos(a) * r, Math.sin(a * 1.3) * r * 0.3 * sat.userData.tilt, Math.sin(a) * r);
+          sat.rotation.y += 0.05;
+        });
+      }
     });
     mainGalaxy.rotation.z = t * 0.03;
     mainGalaxy.scale.setScalar(1 + Math.sin(t*0.4)*0.025);
+    // 远景星系各自缓慢自转
+    for (let gi = 0; gi < distGalaxies.length; gi++){
+      distGalaxies[gi].rotation.z = t * 0.015 * (gi % 2 === 0 ? 1 : -1);
+    }
+    // 小行星带缓慢公转
+    asteroids.rotation.y = t * 0.025;
     // 自动相机推近：8 秒内 90→60
     if (t < 8 && targetDistance > 60) targetDistance = 90 - (t/8)*30;
     // 平滑插值
