@@ -298,7 +298,38 @@
     "f3cf7e75c358afa979b73aad5e10ee9d.mp4",
     "f45e306306fb36d1e3babb352fb5081c.mp4"
   ],
-  "chapter-15-ar": {},
+  "chapter-15-ar": {
+    "themes": [
+      {
+        "name": "誓言",
+        "en": "VOWS",
+        "color": "#ffb3c8",
+        "dir": "theme-01-誓言",
+        "photos": ["AAVF1302.JPG","AEOY3431.JPG","DSAS9934.JPG","EPTF1562.JPG","IMG_7556.JPG","PMFP9700.JPG","RSJJ9554.JPG","XCRS8657.JPG"]
+      },
+      {
+        "name": "这一刻",
+        "en": "THE MOMENT",
+        "color": "#ffd9a0",
+        "dir": "theme-02-这一刻",
+        "photos": ["CDTF4763.JPG","CNESE6562.JPG","TISF4443.JPG"]
+      },
+      {
+        "name": "相拥",
+        "en": "EMBRACE",
+        "color": "#ff9e80",
+        "dir": "theme-03-相拥",
+        "photos": ["IMG_7511.JPG","IMG_7516.JPG","IMG_7522.JPG","IMG_7525.JPG","IMG_7526.JPG","IMG_7527.JPG"]
+      },
+      {
+        "name": "初次见面",
+        "en": "FIRST SIGHT",
+        "color": "#8fd3ff",
+        "dir": "theme-07-初次见面",
+        "photos": ["IMG_7507.JPG","IMG_7508.JPG","IMG_7509.JPG","IMG_7512.JPG","IMG_7548.JPG","IMG_7549.JPG","IMG_7568.JPG"]
+      }
+    ]
+  },
   "chapter-17-wish": {
     "original": [],
     "thumb": []

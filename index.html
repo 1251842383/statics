@@ -293,6 +293,40 @@ img{-webkit-user-drag:none;user-drag:none;-webkit-touch-callout:none}
   100%{transform:translateY(-10vh) rotate(360deg);opacity:0}
 }
 
+/* ============ ch15 AR时光墙 —— 全息照片墙 ============ */
+.viewer-slide.ar{background:radial-gradient(ellipse at center,#0a1428 0%,#05070f 70%);overflow:hidden}
+.ar-canvas{position:absolute;inset:0;width:100%;height:100%;z-index:1}
+.ar-vignette{position:absolute;inset:0;z-index:2;pointer-events:none;
+  background:radial-gradient(ellipse at center, transparent 55%, rgba(3,6,14,.75) 100%)}
+.ar-head{position:absolute;top:clamp(18px,4vh,44px);left:0;right:0;z-index:3;text-align:center;pointer-events:none;
+  opacity:0;animation:arHeadIn 1.2s ease .25s forwards}
+@keyframes arHeadIn{from{opacity:0;transform:translateY(-14px)}to{opacity:1;transform:translateY(0)}}
+.ar-head .ar-num{font-family:"Cormorant Garamond",serif;font-size:.75rem;letter-spacing:.5em;color:rgba(160,210,255,.55);margin-bottom:10px}
+.ar-head .ar-title{font-family:"Noto Serif SC",serif;font-weight:200;font-size:clamp(1.6rem,5vw,2.4rem);color:#eaf4ff;letter-spacing:.4em;
+  text-shadow:0 0 24px rgba(120,190,255,.5),0 0 60px rgba(80,140,255,.25)}
+.ar-head .ar-en{font-family:"Cormorant Garamond",serif;font-style:italic;font-size:.85rem;letter-spacing:.45em;color:rgba(150,200,255,.5);margin-top:8px}
+.ar-theme-label{position:absolute;bottom:clamp(120px,16vh,170px);left:0;right:0;z-index:3;text-align:center;pointer-events:none;
+  font-family:"Noto Serif SC",serif;font-weight:200;font-size:clamp(1rem,3vw,1.25rem);letter-spacing:.6em;
+  color:var(--ar-color,#ffb3c8);opacity:0;transform:translateY(12px);transition:opacity .8s ease,transform .8s ease;
+  text-shadow:0 0 20px var(--ar-glow,rgba(255,179,200,.6))}
+.ar-theme-label.show{opacity:.95;transform:translateY(0)}
+.ar-tabs{position:absolute;bottom:clamp(56px,9vh,90px);left:50%;transform:translateX(-50%);z-index:4;display:flex;gap:10px;
+  padding:8px 12px;border-radius:999px;background:rgba(8,14,28,.55);backdrop-filter:blur(10px);
+  border:1px solid rgba(120,180,255,.18)}
+.ar-tab{font-family:"Noto Serif SC",serif;font-size:.82rem;letter-spacing:.25em;color:rgba(190,215,245,.55);
+  padding:7px 16px;border-radius:999px;border:1px solid transparent;background:none;cursor:pointer;
+  transition:all .4s ease;white-space:nowrap}
+.ar-tab:hover{color:#eaf4ff}
+.ar-tab.active{color:#fff;background:var(--ar-color,#ffb3c8);border-color:transparent;
+  box-shadow:0 0 18px var(--ar-glow,rgba(255,179,200,.55));text-shadow:none}
+.ar-hint{position:absolute;bottom:clamp(16px,3vh,28px);left:0;right:0;z-index:3;text-align:center;
+  font-size:.68rem;letter-spacing:.35em;color:rgba(140,180,230,.4);pointer-events:none}
+@media(max-width:480px){
+  .ar-tabs{gap:5px;padding:6px 8px;max-width:94vw;overflow-x:auto}
+  .ar-tab{padding:6px 10px;font-size:.72rem;letter-spacing:.12em}
+  .ar-theme-label{letter-spacing:.4em;bottom:clamp(104px,15vh,150px)}
+}
+
 /* 封面特殊样式 */
 .viewer-slide.cover{background:radial-gradient(ellipse at center,#1a0e2a 0%,#08040e 100%)}
 .viewer-slide.cover img{display:none}
@@ -339,41 +373,28 @@ img{-webkit-user-drag:none;user-drag:none;-webkit-touch-callout:none}
 /* ============ ch02 峨眉雪 —— 雪花飘落字符 ============ */
 .scene.ch02 .scene-text .ch{
   animation:ch02Snow 4s ease-in-out infinite;
+  text-shadow:0 0 10px rgba(200,225,255,.55), 0 2px 14px rgba(0,0,0,.9);
 }
 .scene.ch02 .scene-text .ch:nth-child(2n){animation-delay:.6s;color:#fff}
 .scene.ch02 .scene-text .ch:nth-child(3n){animation-delay:1.2s;color:rgba(200,225,255,1)}
 @keyframes ch02Snow{
-  0%{transform:translateY(-6px);opacity:0;filter:blur(1.5px);text-shadow:0 0 6px rgba(200,225,255,.6)}
-  20%{transform:translateY(-2px);opacity:1;filter:blur(0);text-shadow:0 0 12px rgba(255,255,255,.8), 0 0 24px rgba(180,220,255,.5)}
-  60%{transform:translateY(0);opacity:1;text-shadow:0 0 8px rgba(200,225,255,.4)}
-  100%{transform:translateY(2px);opacity:.85;filter:blur(.3px)}
+  0%{transform:translateY(-6px);opacity:0}
+  20%{transform:translateY(-2px);opacity:1}
+  60%{transform:translateY(0);opacity:.95}
+  100%{transform:translateY(2px);opacity:.85}
 }
 
 /* ============ ch03 山城之夜 —— 灯笼明灭字符 ============ */
 .scene.ch03 .scene-text .ch{
   animation:ch03Lantern 2.2s ease-in-out infinite;
+  color:rgba(255,200,140,.95);
+  text-shadow:0 0 8px rgba(255,180,80,.6), 0 0 18px rgba(255,140,60,.35), 0 2px 14px rgba(0,0,0,.9);
 }
 .scene.ch03 .scene-text .ch:nth-child(2n){animation-delay:.5s}
 .scene.ch03 .scene-text .ch:nth-child(3n){animation-delay:1s}
 @keyframes ch03Lantern{
-  0%,100%{
-    color:rgba(255,200,140,.95);
-    text-shadow:
-      0 0 6px rgba(255,180,80,.7),
-      0 0 14px rgba(255,140,60,.4),
-      0 0 24px rgba(255,120,40,.2),
-      0 2px 14px rgba(0,0,0,.9);
-    transform:translateY(0) scale(1);
-  }
-  50%{
-    color:#fff;
-    text-shadow:
-      0 0 10px rgba(255,210,140,.95),
-      0 0 22px rgba(255,170,80,.75),
-      0 0 36px rgba(255,140,60,.4),
-      0 2px 14px rgba(0,0,0,.9);
-    transform:translateY(-1px) scale(1.04);
-  }
+  0%,100%{transform:translateY(0) scale(1);opacity:.85}
+  50%{transform:translateY(-1px) scale(1.04);opacity:1}
 }
 
 /* ============ ch04 北海海风 —— 海浪浪花打过来 ============ */
@@ -387,16 +408,17 @@ img{-webkit-user-drag:none;user-drag:none;-webkit-touch-callout:none}
 }
 .scene.ch04 .scene-text .ch{
   animation:ch04Wave 3.5s ease-in-out infinite;
+  color:rgba(235,245,255,.95);
+  text-shadow:0 0 12px rgba(140,200,255,.55), 0 0 26px rgba(120,180,220,.3);
 }
 .scene.ch04 .scene-text .ch:nth-child(2n){animation-delay:.4s}
 .scene.ch04 .scene-text .ch:nth-child(3n){animation-delay:.8s}
 .scene.ch04 .scene-text .ch:nth-child(4n){animation-delay:1.2s}
 @keyframes ch04Wave{
-  0%{transform:translateY(2px);color:rgba(220,235,250,.75);text-shadow:0 0 4px rgba(120,180,220,.3)}
-  25%{transform:translateY(-1px);color:rgba(255,255,255,1);text-shadow:0 0 16px rgba(140,200,255,.9), 0 0 28px rgba(120,180,220,.5)}
-  50%{transform:translateY(-3px) translateX(0);color:#fff;text-shadow:0 0 18px rgba(180,220,255,1), 0 0 30px rgba(120,180,220,.6)}
-  75%{transform:translateY(0);color:rgba(230,245,255,.95);text-shadow:0 0 12px rgba(140,200,255,.6)}
-  100%{transform:translateY(2px);color:rgba(220,235,250,.75);text-shadow:0 0 4px rgba(120,180,220,.3)}
+  0%,100%{transform:translateY(2px);opacity:.82}
+  25%{transform:translateY(-1px);opacity:1}
+  50%{transform:translateY(-3px) translateX(0);opacity:1}
+  75%{transform:translateY(0);opacity:.92}
 }
 @keyframes ch04WaveSweep{
   0%{left:-10%;width:0;opacity:0}
@@ -408,34 +430,29 @@ img{-webkit-user-drag:none;user-drag:none;-webkit-touch-callout:none}
 /* ============ ch05 那年毕业 —— 花瓣飘落字符 ============ */
 .scene.ch05 .scene-text .ch{
   animation:ch05Petal 5s ease-in-out infinite;
+  text-shadow:0 0 8px rgba(255,190,210,.45);
 }
 .scene.ch05 .scene-text .ch:nth-child(2n){animation-delay:.8s;color:rgba(255,210,225,1)}
-.scene.ch05 .scene-text .ch:nth-child(3n){animation-delay:1.6s;color:#fff;text-shadow:0 0 10px rgba(255,180,200,.7)}
+.scene.ch05 .scene-text .ch:nth-child(3n){animation-delay:1.6s;color:#fff;text-shadow:0 0 12px rgba(255,180,200,.7)}
 .scene.ch05 .scene-text .ch:nth-child(5n){animation-delay:2.4s;color:rgba(255,225,235,.95)}
 @keyframes ch05Petal{
-  0%,100%{transform:translate(0,0) rotate(0);text-shadow:0 0 4px rgba(255,180,200,.3)}
-  25%{transform:translate(3px,-4px) rotate(2deg);text-shadow:0 0 14px rgba(255,200,220,.7), 0 0 24px rgba(255,180,200,.3)}
-  50%{transform:translate(-2px,-7px) rotate(-2deg);text-shadow:0 0 18px rgba(255,200,220,.8)}
-  75%{transform:translate(2px,-3px) rotate(1deg);text-shadow:0 0 12px rgba(255,180,200,.5)}
+  0%,100%{transform:translate(0,0) rotate(0);opacity:.88}
+  25%{transform:translate(3px,-4px) rotate(2deg);opacity:1}
+  50%{transform:translate(-2px,-7px) rotate(-2deg);opacity:.95}
+  75%{transform:translate(2px,-3px) rotate(1deg);opacity:1}
 }
 
 /* ============ ch06 在一起 —— 烛光暖晕字符 ============ */
 .scene.ch06 .scene-text .ch{
   animation:ch06Bokeh 3.5s ease-in-out infinite;
+  color:rgba(255,235,215,.92);
+  text-shadow:0 0 10px rgba(255,170,100,.55), 0 0 24px rgba(255,150,80,.3), 0 2px 14px rgba(0,0,0,.9);
 }
 .scene.ch06 .scene-text .ch:nth-child(2n){animation-delay:.5s}
 .scene.ch06 .scene-text .ch:nth-child(3n){animation-delay:1s}
 @keyframes ch06Bokeh{
-  0%,100%{
-    color:rgba(255,235,215,.92);
-    text-shadow:0 0 6px rgba(255,170,100,.4), 0 0 16px rgba(255,150,80,.2), 0 2px 14px rgba(0,0,0,.9);
-    transform:translateY(0) scale(1);
-  }
-  50%{
-    color:#fff8ec;
-    text-shadow:0 0 14px rgba(255,200,140,.85), 0 0 28px rgba(255,180,120,.5), 0 0 44px rgba(255,150,80,.2), 0 2px 14px rgba(0,0,0,.9);
-    transform:translateY(-1px) scale(1.04);
-  }
+  0%,100%{transform:translateY(0) scale(1);opacity:.86}
+  50%{transform:translateY(-1px) scale(1.04);opacity:1}
 }
 
 /* ============ ch07 我们结婚了 —— 玫瑰金光扫过 ============ */
@@ -444,40 +461,43 @@ img{-webkit-user-drag:none;user-drag:none;-webkit-touch-callout:none}
   background-size:300% 100%;
   -webkit-background-clip:text;
   background-clip:text;color:transparent;
-  animation:ch07Rose 4s linear infinite;
 }
-.scene.ch07 .scene-text .ch{color:transparent;background:inherit;-webkit-background-clip:text;background-clip:text}
-@keyframes ch07Rose{
-  0%{background-position:300% 50%}
-  100%{background-position:-300% 50%}
+.scene.ch07 .scene-text .ch{color:transparent}
+/* 玫瑰金光带：加强版扫光（独立元素，不触发 clip 文字重栅格化） */
+.scene.ch07 .scene-text .text-sweep{
+  background:linear-gradient(100deg, transparent 0%, transparent 38%, rgba(255,214,226,.5) 50%, transparent 62%, transparent 100%);
+  background-size:300% 100%;
+  animation-duration:3.6s;
 }
 
 /* ============ ch08 柯柯来了 —— 气泡上浮字符 ============ */
 .scene.ch08 .scene-text .ch{
   animation:ch11Bubble 3.6s ease-in-out infinite;
+  text-shadow:0 0 10px rgba(255,190,215,.5), 0 2px 14px rgba(0,0,0,.9);
 }
 .scene.ch08 .scene-text .ch:nth-child(2n){animation-delay:.6s}
 .scene.ch08 .scene-text .ch:nth-child(3n){animation-delay:1.2s;color:rgba(255,210,235,1);text-shadow:0 0 12px rgba(255,180,210,.7)}
 .scene.ch08 .scene-text .ch:nth-child(4n){animation-delay:1.8s;color:#fff}
 @keyframes ch11Bubble{
-  0%,100%{transform:translateY(0) scale(1);text-shadow:0 0 6px rgba(255,180,210,.4), 0 2px 14px rgba(0,0,0,.9)}
-  35%{transform:translateY(-3px) scale(1.05);text-shadow:0 0 16px rgba(255,200,225,.85), 0 0 28px rgba(255,180,210,.4)}
-  70%{transform:translateY(-1px) scale(1.02);text-shadow:0 0 12px rgba(255,200,225,.6)}
+  0%,100%{transform:translateY(0) scale(1);opacity:.88}
+  35%{transform:translateY(-3px) scale(1.05);opacity:1}
+  70%{transform:translateY(-1px) scale(1.02);opacity:.94}
 }
 
 /* ============ ch09 时光影片 —— 老电影抖动字符 ============ */
 .scene.ch09 .scene-text .ch{
   animation:ch14Film 3s steps(8) infinite;
   color:rgba(255,235,210,.95);
+  text-shadow:0 0 8px rgba(255,200,140,.5), 1px 0 0 rgba(255,0,0,.28), -1px 0 0 rgba(0,255,255,.28), 0 2px 14px rgba(0,0,0,.9);
 }
 .scene.ch09 .scene-text .ch:nth-child(2n){animation-delay:.4s}
 .scene.ch09 .scene-text .ch:nth-child(3n){animation-delay:.8s}
 @keyframes ch14Film{
-  0%,100%{transform:translate(0,0) skewX(0);text-shadow:0 0 6px rgba(255,200,140,.4), 0 2px 14px rgba(0,0,0,.9);opacity:.92}
-  20%{transform:translate(-1px,0) skewX(.5deg);opacity:1;text-shadow:0 0 14px rgba(255,200,140,.6)}
-  40%{transform:translate(1px,1px) skewX(-.3deg);opacity:.85;text-shadow:1px 0 0 rgba(255,0,0,.3),-1px 0 0 rgba(0,255,255,.3),0 0 10px rgba(255,200,140,.5)}
-  60%{transform:translate(0,-1px);opacity:1;text-shadow:0 0 12px rgba(255,200,140,.7)}
-  80%{transform:translate(0,1px) skewX(.3deg);opacity:.9;text-shadow:0 0 8px rgba(255,200,140,.5)}
+  0%,100%{transform:translate(0,0) skewX(0);opacity:.92}
+  20%{transform:translate(-1px,0) skewX(.5deg);opacity:1}
+  40%{transform:translate(1px,1px) skewX(-.3deg);opacity:.85}
+  60%{transform:translate(0,-1px);opacity:1}
+  80%{transform:translate(0,1px) skewX(.3deg);opacity:.9}
 }
 .cover-content{text-align:center;color:#fff;padding:0 30px;z-index:3}
 .cover-content .deco{font-family:"Cormorant Garamond",serif;font-style:italic;font-size:.8rem;letter-spacing:.5em;color:rgba(248,232,212,.5);margin-bottom:18px}
@@ -1095,15 +1115,13 @@ img{-webkit-user-drag:none;user-drag:none;-webkit-touch-callout:none}
 .scene.ch07 .scene-deco::before{
   content:'';position:absolute;inset:0;
   background:
-    radial-gradient(circle at 50% 50%,rgba(255,180,200,.1) 0%,transparent 50%);
+    radial-gradient(circle at 50% 50%,rgba(255,180,200,.1) 0%,transparent 50%),
+    radial-gradient(circle at 50% 88%,rgba(255,142,179,.28) 0%,rgba(255,142,179,.1) 30%,transparent 62%);
 }
 .scene.ch07 .scene-deco::after{
   content:'♥';position:absolute;bottom:10%;left:50%;transform:translateX(-50%);
-  font-size:4rem;color:rgba(255,142,179,.3);
-  text-shadow:0 0 60px rgba(255,142,179,.5);
-  animation:ch07Heart 2s ease-in-out infinite;
+  font-size:4rem;color:rgba(255,152,186,.42);
 }
-@keyframes ch07Heart{0%,100%{transform:translateX(-50%) scale(1);opacity:.3}50%{transform:translateX(-50%) scale(1.1);opacity:.6}}
 
 /* ch11 —— 柯柯来了 */
 .scene.ch11 .scene-bg{
@@ -1506,6 +1524,8 @@ const CHAPTERS = [
     text:'小小的你来到这个世界\n哭声那么响，眼睛那么亮\n我们的二人世界变成了三口之家\n从此多了一份软绵绵的牵挂' },
   { id:'ch14', title:'时光影片', en:'TIME FILMS', folder:'chapter-14-video', bg:'bg-images/14-video.jpg', effect:'film',
     text:'我们拍过的那些短片\n把每一个值得纪念的瞬间都留下来\n按下播放键，回到那一刻', isVideo:true },
+  { id:'ch15', title:'AR时光墙', en:'AR MEMORY WALL', folder:'chapter-15-ar', bg:null, effect:'holo', isAR:true,
+    text:'把最珍贵的瞬间封存在光里\n誓言、心动、相拥、初见\n指尖轻抚，时光便重新亮起\n原来回忆真的可以触摸' },
   { id:'wish', title:'下一个十年', en:'NEXT TEN YEARS', folder:null, bg:null, effect:'heart',
     text:'愿我们继续牵着彼此的手，看更多的山海，走更远的路。\n愿我们的小家永远充满笑声，愿柯柯健康快乐地长大。\n愿十年后、二十年后、五十年后，你仍是我最想见的那个人。',
     isWish:true, photo:null }
@@ -2643,6 +2663,7 @@ const CHAPTERS = [
   window.__destroyLoaderThree = () => {
     _loaderRunning = false;
     try { renderer.dispose(); } catch(e){}
+    try { renderer.forceContextLoss(); } catch(e){}  // 释放 GL 上下文，给章节 3D 腾出资源
     const disposeScene = (s) => {
       if (!s) return;
       s.traverse(obj => {
@@ -3802,8 +3823,11 @@ let previewChapterIdx = 0;
 let previewPhotos = [];      // 该章节所有原图 URL
 let previewPhotoIdx = 0;
 let previewAllChapters = {};  // 缓存每章的照片列表
+let previewFromChapter = false;  // 大图预览是从章节视图还是首页球面打开
 
 async function openPreview(pm){
+  previewFromChapter = viewerEl.classList.contains('active');
+  if (previewFromChapter) clearAutoAdvance();  // 看大图时暂停底层章节自动翻页
   previewChapterIdx = pm.chapterIdx;
   // 取该章节所有照片（不重复）
   const ch = CHAPTERS[previewChapterIdx];
@@ -3878,14 +3902,20 @@ function renderPreview(){
 
 function closePreview(){
   previewEl.classList.remove('active');
-  homeEl.style.display = 'block';
   previewBack.classList.remove('show');
   previewHint.classList.remove('show');
   previewDots.classList.remove('show');
+  previewStage.innerHTML = '';
+  // 从章节视图打开的：章节还在下层，直接关掉回到章节即可
+  if (previewFromChapter){
+    const scene = viewerStage.querySelector('.scene');
+    if (scene) startAutoAdvance(scene);
+    return;
+  }
+  homeEl.style.display = 'block';
   document.getElementById('homeTitle').style.display = 'block';
   document.getElementById('homeHint').style.display = 'block';
   document.getElementById('openChapterBtn').style.display = 'inline-flex';
-  previewStage.innerHTML = '';
 }
 
 previewBack.addEventListener('click', closePreview);
@@ -3968,8 +3998,9 @@ let viewerPhotos = [];  // 每章所有照片
 // ============================================================
 // (viewerEl/Stage/Back/Dots 已在上方声明，viewerIdx/Photos 在上面已声明)
 let viewerPhotoIdx = 0;
-let viewerMode = 'flow';  // book / flow / stack
+let viewerMode = 'flow';  // book / flow / stack / ar
 let viewerFxState = { stop: true };
+let arThemes = [];  // ch15 AR 章节的主题照片组
 
 async function openChapter(idx){
   viewerIdx = idx;
@@ -3988,14 +4019,21 @@ async function openChapter(idx){
   if (ch.folder){
     const data = await loadPhotosData();
     const entry = data[ch.folder];
-    const arr = Array.isArray(entry) ? entry : (entry?.original || []);
-    arr.forEach(p => viewerPhotos.push(`${ch.folder}/${p}`));
+    if (ch.isAR){
+      // AR 章节：按主题加载（photos.json 的 themes 结构）
+      arThemes = (entry?.themes || []).map(t => ({
+        name: t.name, en: t.en, color: new THREE.Color(t.color || '#ffb3c8'),
+        photos: (t.photos || []).map(p => `${ch.folder}/${t.dir}/thumb/${p}`)
+      })).filter(t => t.photos.length);
+    } else {
+      const arr = Array.isArray(entry) ? entry : (entry?.original || []);
+      arr.forEach(p => viewerPhotos.push(`${ch.folder}/${p}`));
+    }
   }
-  if (!viewerPhotos.length && ch.folder && !ch.isVideo){
+  if (!viewerPhotos.length && ch.folder && !ch.isVideo && !ch.isAR){
     const fromSphere = photoMeshes.filter(p => p.chapterIdx === idx).map(p => p.src);
     viewerPhotos = fromSphere;
   }
-
   // 预加载本章前几张原图（首页秒开），其余边看边提前一张加载
   if (!ch.isVideo && viewerPhotos.length){
     const firstBatch = viewerPhotos.slice(0, isDesktop ? 4 : 2);
@@ -4023,6 +4061,7 @@ async function openChapter(idx){
   const n = viewerPhotos.length;
   if (ch.isCover) viewerMode = 'cover';
   else if (ch.isWish) viewerMode = 'wish';
+  else if (ch.isAR) viewerMode = 'ar';
   else if (ch.isVideo) viewerMode = 'filmstrip';
   else if (n <= 8) viewerMode = 'book';
   else if (n <= 18) viewerMode = 'flow';
@@ -4234,7 +4273,7 @@ function startChapterThree(sceneEl, ch){
     const mat = new THREE.PointsMaterial({ color: 0xffe8c0, size: 0.08, transparent: true, opacity: 0.7, depthWrite: false });
     const pts = new THREE.Points(geo, mat);
     threeScene.add(pts);
-    objs.push({ kind:'film', mesh: pts });
+    objs.push({ kind:'film', mesh: pts, geo });
   } else if (fx === 'bokeh'){
     // ch06 在一起：金色圆斑（远景 3D 圆盘）
     for (let i = 0; i < 18; i++){
@@ -4340,6 +4379,8 @@ function startChapterThree(sceneEl, ch){
       cancelAnimationFrame(raf);
       window.removeEventListener('resize', onResize);
       try { renderer.dispose(); } catch(e){}
+      // 强制释放 GL 上下文 —— 连续浏览多章节时避免上下文累积导致越来越卡
+      try { renderer.forceContextLoss(); } catch(e){}
       const dom = renderer.domElement;
       if (dom && dom.parentNode) dom.parentNode.removeChild(dom);
     }
@@ -4393,6 +4434,10 @@ function renderChapterScene(){
     renderWishScene(ch);
     return;
   }
+  if (viewerMode === 'ar'){
+    renderARScene(ch);
+    return;
+  }
 
   // 普通章节场景：背景 + 装饰 + 3D 相册 + 文案
   const scene = document.createElement('div');
@@ -4413,7 +4458,7 @@ function renderChapterScene(){
       <span><span class="ico"></span>左 右 · 翻 章</span>
       ${viewerMode === 'filmstrip'
         ? '<span><span class="ico"></span>点 击 · 播 放</span>'
-        : '<span><span class="ico"></span>上 下 · 换 照</span>'}
+        : '<span><span class="ico"></span>上 下 · 换 照</span><span><span class="ico"></span>点 击 · 原 图</span>'}
     </div>`;
   viewerStage.appendChild(scene);
 
@@ -4483,6 +4528,7 @@ function openVideoPlayer(url, idx){
 // 3D 相册：book —— 翻页效果
 function renderBook(scene){
   const frame = scene.querySelector('#sceneFrame');
+  frame.innerHTML = '';  // 防止翻页后旧相册累积
   const total = viewerPhotos.length;
   const curIdx = viewerPhotoIdx;
   // 立体对开相册：左页 = 当前照片的左半/前一页，右页 = 当前
@@ -4504,6 +4550,10 @@ function renderBook(scene){
 
   book.appendChild(spread);
   frame.appendChild(book);
+
+  // 点击书页 → 打开原图大图预览
+  left.addEventListener('click', () => openPreview({ chapterIdx: viewerIdx, src: viewerPhotos[prevIdx] }));
+  right.addEventListener('click', () => openPreview({ chapterIdx: viewerIdx, src: viewerPhotos[curIdx] }));
 
   // 桌面端：鼠标视差（轻微倾斜跟随）
   if (isDesktop) {
@@ -4553,6 +4603,8 @@ function bookFlip(book, dir){
   if (book._state.flipping) return;
   const st = book._state;
   const total = st.total;
+  // 翻页前先记住场景引用（renderBook 会清空 frame，旧 book 的父子链会断）
+  const sceneEl = book.parentElement.parentElement;
   let nextIdx = st.curIdx + (dir === 'next' ? 1 : -1);
   if (nextIdx < 0) nextIdx = total - 1;
   if (nextIdx >= total) nextIdx = 0;
@@ -4582,9 +4634,10 @@ function bookFlip(book, dir){
     book.classList.remove('flipping');
     if (nextIn) nextIn.remove();
     st.curIdx = nextIdx;
+    viewerPhotoIdx = nextIdx;  // 同步全局索引（计数器/自动播放/原图预览都依赖它）
     // 重渲染左 + 右页
-    renderBook(book.parentElement.parentElement);
-    const counter = book.parentElement.parentElement.querySelector('.scene-counter');
+    renderBook(sceneEl);
+    const counter = sceneEl.querySelector('.scene-counter');
     if (counter) counter.textContent = `${nextIdx + 1} / ${total}`;
   }, 1150);
 }
@@ -4592,6 +4645,7 @@ function bookFlip(book, dir){
 // 3D 相册：flow —— 聚光封面流
 function renderFlow(scene){
   const frame = scene.querySelector('#sceneFrame');
+  frame.innerHTML = '';  // 防止切换后旧卡流累积
   const flow = document.createElement('div');
   flow.className = 'flow';
   frame.appendChild(flow);
@@ -4640,6 +4694,20 @@ function renderFlow(scene){
       <div class="flow-glow"></div>
       <div class="flow-num">No.${String(i+1).padStart(2,'0')}</div>
       <div class="flow-caption">${chTitle}</div>`;
+    // 点击：当前卡 → 原图大图预览；侧边卡 → 切到该卡
+    card.addEventListener('click', () => {
+      if (i === viewerPhotoIdx){
+        openPreview({ chapterIdx: viewerIdx, src: url });
+        return;
+      }
+      viewerPhotoIdx = i;
+      preloadImage(url).then(() => {
+        if (!scene.isConnected) return;
+        renderFlow(scene);
+        const counter = scene.querySelector('.scene-counter');
+        if (counter) counter.textContent = `${i + 1} / ${total}`;
+      });
+    });
     flow.appendChild(card);
   });
 
@@ -4665,6 +4733,7 @@ function flowGo(scene, dir){
 // 3D 相册：stack —— 影院画廊（一图全屏 + Ken Burns + 缩略图条）
 function renderStack(scene){
   const frame = scene.querySelector('#sceneFrame');
+  frame.innerHTML = '';  // 防止切换后旧影院累积
   const cinema = document.createElement('div');
   cinema.className = 'cinema';
 
@@ -4679,6 +4748,8 @@ function renderStack(scene){
     <img src="${viewerPhotos[curIdx]}" alt="cinema ${curIdx+1}">
     <div class="cinema-num">No.${String(curIdx+1).padStart(2,'0')} / ${String(total).padStart(2,'0')}</div>
     <div class="cinema-cap">${ch.title}</div>`;
+  // 点击主图 → 原图大图预览
+  hero.addEventListener('click', () => openPreview({ chapterIdx: viewerIdx, src: viewerPhotos[curIdx] }));
   cinema.appendChild(hero);
 
   // 缩略图条
@@ -5116,6 +5187,7 @@ function renderWishScene(ch){
   const cleanup = () => {
     stop();
     geo.dispose(); mat.dispose(); renderer.dispose();
+    try { renderer.forceContextLoss(); } catch(e){}  // 释放 GL 上下文
     textSprites.forEach(sp => { sp.material.map.dispose(); sp.material.dispose(); });
     window.removeEventListener('resize', resizeWish);
     window.removeEventListener('mouseup', dragEnd);
@@ -5130,6 +5202,535 @@ function renderWishScene(ch){
     }
   }, 500);
   viewerFxState._wish = cleanup;
+}
+
+// ============================================================
+// ch15 AR时光墙 —— 全息照片墙
+// GLSL 全息卡片（扫描线/色差/边缘辉光/故障闪烁）+ 主题星域
+// 主题切换 = 卡片从星尘中弹簧聚合成弧形墙，旧卡片漂散消隐
+// 拖拽旋转 / hover 高亮 / 点击凝视一帧
+// ============================================================
+let arApi = null;  // 供触摸滑动切换主题的外部接口
+function renderARScene(ch){
+  if (typeof THREE === 'undefined' || !arThemes.length) return;
+
+  const slide = document.createElement('div');
+  slide.className = 'viewer-slide ar';
+  slide.innerHTML = `
+    <canvas class="ar-canvas"></canvas>
+    <div class="ar-vignette"></div>
+    <div class="ar-head">
+      <div class="ar-num">No.${String(viewerIdx).padStart(2,'0')} · ${ch.en}</div>
+      <div class="ar-title">${ch.title}</div>
+      <div class="ar-en">${ch.en}</div>
+    </div>
+    <div class="ar-theme-label"></div>
+    <div class="ar-tabs"></div>
+    <div class="ar-hint">${isDesktop ? '拖 拽 · 旋 转 时 光　　点 击 · 凝 视 一 帧' : '滑 动 · 旋 转 时 光　　点 击 · 凝 视 一 帧'}</div>`;
+  viewerStage.appendChild(slide);
+
+  const canvas = slide.querySelector('.ar-canvas');
+  const labelEl = slide.querySelector('.ar-theme-label');
+  const tabsEl = slide.querySelector('.ar-tabs');
+  const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true, preserveDrawingBuffer: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setClearColor(0x000000, 0);
+
+  const arScene = new THREE.Scene();
+  const arCam = new THREE.PerspectiveCamera(55, 1, 0.1, 100);
+  arCam.position.set(0, 0.3, isDesktop ? 13.5 : 19);
+
+  const world = new THREE.Group();
+  arScene.add(world);
+
+  const t0 = performance.now();
+  const curColor = new THREE.Color(arThemes[0].color);
+
+  // ---------- 背景星域（GLSL 点云：噪声漂移 + 主题色流转） ----------
+  const PN = isDesktop ? 700 : 320;
+  const pGeo = new THREE.BufferGeometry();
+  const pPos = new Float32Array(PN * 3);
+  const pRand = new Float32Array(PN);
+  const pSize = new Float32Array(PN);
+  for (let i = 0; i < PN; i++){
+    const r = 9 + Math.random() * 14;
+    const a = Math.random() * Math.PI * 2;
+    const sp = Math.acos(2 * Math.random() - 1);
+    pPos[i*3]   = r * Math.sin(sp) * Math.cos(a);
+    pPos[i*3+1] = r * Math.sin(sp) * Math.sin(a) * 0.7;
+    pPos[i*3+2] = r * Math.cos(sp);
+    pRand[i] = Math.random();
+    pSize[i] = 0.5 + Math.random() * 1.8;
+  }
+  pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
+  pGeo.setAttribute('aRand', new THREE.BufferAttribute(pRand, 1));
+  pGeo.setAttribute('aSize', new THREE.BufferAttribute(pSize, 1));
+  const pMat = new THREE.ShaderMaterial({
+    uniforms: {
+      uTime: { value: 0 },
+      uColor: { value: curColor },
+      uPixelRatio: { value: Math.min(window.devicePixelRatio, 2) }
+    },
+    vertexShader: /* glsl */`
+      attribute float aRand;
+      attribute float aSize;
+      uniform float uTime;
+      uniform float uPixelRatio;
+      varying float vRand;
+      void main(){
+        vRand = aRand;
+        vec3 p = position;
+        p.x += sin(uTime * 0.15 + aRand * 40.0) * 0.9;
+        p.y += cos(uTime * 0.12 + aRand * 55.0) * 0.9;
+        p.z += sin(uTime * 0.10 + aRand * 30.0) * 0.9;
+        vec4 mv = modelViewMatrix * vec4(p, 1.0);
+        gl_Position = projectionMatrix * mv;
+        gl_PointSize = aSize * uPixelRatio * (26.0 / max(-mv.z, 1.0)) * (0.8 + 0.4 * sin(uTime * 1.3 + aRand * 20.0));
+      }
+    `,
+    fragmentShader: /* glsl */`
+      uniform float uTime;
+      uniform vec3 uColor;
+      varying float vRand;
+      void main(){
+        vec2 uv = gl_PointCoord - 0.5;
+        float d = length(uv);
+        float core = exp(-d * d * 26.0);
+        float halo = exp(-d * d * 7.0) * 0.3;
+        vec3 col = mix(uColor, vec3(0.75, 0.9, 1.0), vRand * 0.55);
+        float tw = 0.7 + 0.3 * sin(uTime * 1.8 + vRand * 30.0);
+        float alpha = (core + halo) * tw;
+        if (alpha < 0.01) discard;
+        gl_FragColor = vec4(col, alpha * 0.85);
+      }
+    `,
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending
+  });
+  world.add(new THREE.Points(pGeo, pMat));
+
+  // ---------- 全息地网（GLSL 网格 + 扫描脉冲环） ----------
+  const gGeo = new THREE.PlaneGeometry(46, 30, 1, 1);
+  gGeo.rotateX(-Math.PI / 2);
+  const gMat = new THREE.ShaderMaterial({
+    uniforms: { uTime: { value: 0 }, uColor: { value: curColor }, uBurst: { value: -10 } },
+    vertexShader: /* glsl */`
+      varying vec2 vUv;
+      void main(){
+        vUv = uv;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: /* glsl */`
+      uniform float uTime;
+      uniform float uBurst;
+      uniform vec3 uColor;
+      varying vec2 vUv;
+      void main(){
+        // 网格线
+        vec2 g = abs(fract(vUv * vec2(22.0, 14.0)) - 0.5);
+        float line = smoothstep(0.44, 0.5, max(g.x, g.y)) * 0.4;
+        // 扫描脉冲环（从中心周期扩散）
+        float d = distance(vUv, vec2(0.5));
+        float pulse = exp(-pow((d - fract(uTime * 0.09)) * 16.0, 2.0)) * 0.7;
+        // 主题切换能量爆发波（一次性，从中心冲出）
+        float burst = 0.0;
+        float age = uTime - uBurst;
+        if (age > 0.0 && age < 2.0){
+          burst = exp(-pow((d - age * 0.55) * 11.0, 2.0)) * (1.0 - age / 2.0);
+        }
+        float fade = smoothstep(0.52, 0.08, d);
+        float alpha = (line + pulse + burst * 1.2) * fade;
+        if (alpha < 0.01) discard;
+        gl_FragColor = vec4(uColor * (1.0 + pulse * 1.5 + burst * 2.0), alpha);
+      }
+    `,
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending
+  });
+  const grid = new THREE.Mesh(gGeo, gMat);
+  grid.position.y = -5.4;
+  world.add(grid);
+
+  // ---------- 全息卡片 ----------
+  const BASE_H = isDesktop ? 3.0 : 2.6;
+  const cards = [];       // {mesh, mat, themeIdx, base, pos, target, reveal, revealT, scaleT, phase, active, loaded}
+  const texLoader = new THREE.TextureLoader();
+
+  const CARD_FS = /* glsl */`
+    uniform sampler2D uMap;
+    uniform float uTime;
+    uniform float uReveal;
+    uniform float uHover;
+    uniform float uHasTex;
+    uniform vec3 uColor;
+    varying vec2 vUv;
+    float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+    void main(){
+      if (uHasTex < 0.5) discard;
+      // 全息色差：中心弱、边缘强，hover 时增强
+      vec2 c = vUv - 0.5;
+      float ab = 0.004 + uHover * 0.007;
+      vec3 col;
+      col.r = texture2D(uMap, vUv + c * ab).r;
+      col.g = texture2D(uMap, vUv).g;
+      col.b = texture2D(uMap, vUv - c * ab).b;
+      // 扫描流光
+      float scan = sin(vUv.y * 90.0 - uTime * 2.2) * 0.5 + 0.5;
+      col += uColor * scan * 0.10;
+      // 边缘辉光
+      vec2 edge = min(vUv, 1.0 - vUv);
+      float glow = 1.0 - smoothstep(0.0, 0.07, min(edge.x, edge.y));
+      col += uColor * glow * (0.5 + uHover * 0.9);
+      // 偶发故障行闪烁
+      float fl = step(0.985, hash(vec2(floor(uTime * 7.0), floor(vUv.y * 22.0))));
+      col += fl * uColor * 0.4;
+      // 亮度：hover 提亮
+      col *= 0.86 + uHover * 0.5;
+      // 出现/消散：扫描线自下而上点亮
+      float rowVis = smoothstep(vUv.y, vUv.y + 0.3, uReveal * 1.3);
+      // 微噪点
+      col += hash(vUv * 700.0 + fract(uTime) * 13.0) * 0.045;
+      float alpha = rowVis * (0.9 + glow * 0.4 + uHover * 0.1);
+      if (alpha < 0.01) discard;
+      gl_FragColor = vec4(col, alpha);
+    }
+  `;
+
+  arThemes.forEach((theme, ti) => {
+    theme.photos.forEach(src => {
+      const mat = new THREE.ShaderMaterial({
+        uniforms: {
+          uMap: { value: null },
+          uTime: { value: 0 },
+          uReveal: { value: 0 },
+          uHover: { value: 0 },
+          uHasTex: { value: 0 },
+          uColor: { value: theme.color }
+        },
+        vertexShader: /* glsl */`
+          varying vec2 vUv;
+          void main(){
+            vUv = uv;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+          }
+        `,
+        fragmentShader: CARD_FS,
+        transparent: true, depthWrite: false, side: THREE.DoubleSide
+      });
+      const mesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1.33), mat);
+      // 初始：散布在星域里的随机位置
+      const a = Math.random() * Math.PI * 2;
+      const r = 10 + Math.random() * 8;
+      const y = (Math.random() - 0.5) * 14;
+      mesh.position.set(Math.cos(a) * r, y, Math.sin(a) * r * 0.6 - 4);
+      world.add(mesh);
+      const card = {
+        mesh, mat, themeIdx: ti,
+        base: new THREE.Vector3(),       // 本主题弧形墙上的固定位
+        target: mesh.position.clone(),    // 弹簧目标
+        reveal: 0, revealT: 0,
+        scale: 0.6, scaleT: 0.6,
+        hover: 0, hoverT: 0,
+        phase: Math.random() * Math.PI * 2,
+        active: false, loaded: false
+      };
+      cards.push(card);
+      // 异步加载缩略图：加载完立刻"物化"（若属于当前主题）
+      texLoader.load(src, tex => {
+        tex.colorSpace = THREE.SRGBColorSpace;
+        mat.uniforms.uMap.value = tex;
+        mat.uniforms.uHasTex.value = 1;
+        card.loaded = true;
+        // 按真实宽高比重设几何
+        const aspect = tex.image.width / tex.image.height;
+        let h = BASE_H, w = h * aspect;
+        if (w > h * 1.5){ w = h * 1.5; }  // 全景照限宽
+        mesh.geometry.dispose();
+        mesh.geometry = new THREE.PlaneGeometry(w, h);
+      });
+    });
+  });
+
+  // ---------- 主题弧形墙排布 ----------
+  function arrangeTheme(ti){
+    const list = cards.filter(c => c.themeIdx === ti);
+    const n = list.length;
+    const rows = n > 5 ? 2 : 1;
+    const perRow = Math.ceil(n / rows);
+    const R = 8.4;
+    const spread = rows === 2 ? 1.7 : Math.min(1.9, 0.45 * n);
+    list.forEach((card, i) => {
+      const row = Math.floor(i / perRow);
+      const col = i % perRow;
+      const cnt = Math.min(perRow, n - row * perRow);
+      const t = cnt <= 1 ? 0 : (col / (cnt - 1)) * 2 - 1;   // -1..1
+      const ang = t * spread / 2;
+      const y = (rows === 1 ? 0 : (row === 0 ? 1.75 : -1.75)) + (Math.random() - 0.5) * 0.22;
+      card.base.set(Math.sin(ang) * R, y, R * (Math.cos(ang) - 1) - row * 0.55);
+      card.mesh.rotation.set(0, -ang * 0.5, 0);
+    });
+  }
+  arThemes.forEach((_, ti) => arrangeTheme(ti));
+
+  // ---------- 主题切换 ----------
+  let curTheme = -1;
+  let focused = null;
+  let autoTimer = null;
+
+  function applyThemeVars(ti){
+    const th = arThemes[ti];
+    const hex = '#' + th.color.getHexString();
+    slide.style.setProperty('--ar-color', hex);
+    slide.style.setProperty('--ar-glow', th.color.getStyle().replace('rgb(', 'rgba(').replace(')', ',.55)'));
+  }
+
+  function switchTheme(ti, manual){
+    ti = (ti + arThemes.length) % arThemes.length;
+    if (ti === curTheme) return;
+    curTheme = ti;
+    focused = null;
+    const th = arThemes[ti];
+    // 能量爆发波：地面网格从中心冲出一圈光
+    gMat.uniforms.uBurst.value = (performance.now() - t0) * 0.001;
+    applyThemeVars(ti);
+    // 主题大字：淡出→换字→淡入
+    labelEl.classList.remove('show');
+    setTimeout(() => {
+      labelEl.textContent = `${th.name} · ${th.en}`;
+      labelEl.classList.add('show');
+    }, 450);
+    // 标签页高亮
+    tabsEl.querySelectorAll('.ar-tab').forEach((b, i) => b.classList.toggle('active', i === ti));
+    // 卡片调度：旧主题漂散消隐，新主题错峰弹簧聚合
+    cards.forEach(card => {
+      if (card.themeIdx === ti){
+        card.active = true;
+        card.revealT = 1;
+        card.scaleT = 1;
+        const i = cards.filter(c => c.themeIdx === ti).indexOf(card);
+        setTimeout(() => { card.target.copy(card.base); }, 120 + i * 90);
+      } else if (card.active){
+        card.active = false;
+        card.revealT = 0;
+        card.scaleT = 0.6;
+        // 沿远离中心方向漂散
+        const dir = card.mesh.position.clone().normalize();
+        card.target.copy(card.mesh.position).addScaledVector(dir, 3.5);
+      }
+    });
+    if (manual) restartAuto();
+  }
+
+  function restartAuto(){
+    if (autoTimer) clearTimeout(autoTimer);
+    autoTimer = setTimeout(() => {
+      if (!focused) switchTheme(curTheme + 1, false);
+      restartAuto();
+    }, 10000);
+  }
+
+  // 主题标签
+  arThemes.forEach((th, i) => {
+    const b = document.createElement('button');
+    b.className = 'ar-tab';
+    b.textContent = th.name;
+    b.addEventListener('click', e => { e.stopPropagation(); switchTheme(i, true); });
+    tabsEl.appendChild(b);
+  });
+
+  // ---------- 交互：拖拽旋转 / hover 高亮 / 点击凝视 ----------
+  const raycaster = new THREE.Raycaster();
+  const ndc = new THREE.Vector2(-10, -10);
+  let mouseSeen = false;
+  let dragging = false, lastX = 0, lastY = 0, velY = 0;
+  let downX = 0, downY = 0;
+  let rotTargetY = null;
+
+  function toNDC(x, y){
+    const r = canvas.getBoundingClientRect();
+    ndc.set(((x - r.left) / r.width) * 2 - 1, -(((y - r.top) / r.height) * 2 - 1));
+    mouseSeen = true;
+  }
+  function onDown(x, y){
+    dragging = true; velY = 0;
+    lastX = downX = x; lastY = downY = y;
+  }
+  function onMove(x, y){
+    toNDC(x, y);
+    if (!dragging) return;
+    velY = (x - lastX) * 0.005;
+    world.rotation.y += velY;
+    world.rotation.x = Math.max(-0.35, Math.min(0.35, world.rotation.x + (y - lastY) * 0.003));
+    rotTargetY = null;
+    lastX = x; lastY = y;
+  }
+  function onUp(x, y){
+    if (!dragging) return;
+    dragging = false;
+    // 位移极小 → 视为点击（凝视/取消凝视）
+    if (Math.abs(x - downX) < 6 && Math.abs(y - downY) < 6){
+      toNDC(x, y);
+      raycaster.setFromCamera(ndc, arCam);
+      const activeMeshes = cards.filter(c => c.active && c.loaded).map(c => c.mesh);
+      const hits = raycaster.intersectObjects(activeMeshes, false);
+      if (hits.length){
+        const card = cards.find(c => c.mesh === hits[0].object);
+        if (card) toggleFocus(card);
+      } else if (focused){
+        toggleFocus(null);
+      }
+    }
+  }
+  function toggleFocus(card){
+    if (focused === card) card = null;
+    focused = card;
+    cards.forEach(c => {
+      if (c === focused){
+        c.target.copy(c.base).add(new THREE.Vector3(0, 0, 2.6));
+        c.scaleT = 1.55;
+        c.revealT = 1;
+      } else if (c.active){
+        c.target.copy(c.base);
+        c.scaleT = c.active ? 1 : 0.6;
+        c.revealT = focused ? 0.18 : 1;
+      }
+    });
+    if (focused){
+      // 转回正面看它
+      rotTargetY = Math.round(world.rotation.y / (Math.PI * 2)) * Math.PI * 2;
+    }
+  }
+
+  const winMove = e => onMove(e.clientX, e.clientY);
+  const winUp = e => onUp(e.clientX, e.clientY);
+  if (isDesktop){
+    canvas.style.cursor = 'grab';
+    canvas.addEventListener('mousedown', e => { e.preventDefault(); onDown(e.clientX, e.clientY); });
+    window.addEventListener('mousemove', winMove, { passive: true });
+    window.addEventListener('mouseup', winUp, { passive: true });
+  } else {
+    canvas.addEventListener('touchstart', e => { onDown(e.touches[0].clientX, e.touches[0].clientY); }, { passive: true });
+    canvas.addEventListener('touchmove', e => { onMove(e.touches[0].clientX, e.touches[0].clientY); }, { passive: true });
+    canvas.addEventListener('touchend', e => { onUp(e.changedTouches[0].clientX, e.changedTouches[0].clientY); }, { passive: true });
+  }
+
+  // ---------- 渲染循环 ----------
+  function resizeAR(){
+    const w = canvas.clientWidth || window.innerWidth;
+    const h = canvas.clientHeight || window.innerHeight;
+    renderer.setSize(w, h, false);
+    arCam.aspect = w / h;
+    arCam.updateProjectionMatrix();
+  }
+  resizeAR();
+  window.addEventListener('resize', resizeAR);
+
+  let running = true;
+  const stop = () => { running = false; };
+
+  function arLoop(){
+    if (!running) return;
+    if (!viewerStage.isConnected || !canvas.isConnected){ stop(); return; }
+    const ts = (performance.now() - t0) * 0.001;
+
+    pMat.uniforms.uTime.value = ts;
+    gMat.uniforms.uTime.value = ts;
+    // 背景色向当前主题色缓变
+    if (curTheme >= 0) curColor.lerp(arThemes[curTheme].color, 0.035);
+
+    // 空闲时缓慢自转 + 拖拽惯性
+    if (!dragging){
+      velY *= 0.94;
+      world.rotation.y += velY + 0.0016;
+      if (rotTargetY !== null){
+        world.rotation.y += (rotTargetY - world.rotation.y) * 0.07;
+        if (Math.abs(rotTargetY - world.rotation.y) < 0.002) rotTargetY = null;
+      }
+      world.rotation.x += (0 - world.rotation.x) * 0.03;
+    }
+
+    // 桌面 hover 检测
+    if (isDesktop && !dragging && mouseSeen){
+      raycaster.setFromCamera(ndc, arCam);
+      const activeMeshes = cards.filter(c => c.active && c.loaded).map(c => c.mesh);
+      const hits = raycaster.intersectObjects(activeMeshes, false);
+      const hot = hits.length ? cards.find(c => c.mesh === hits[0].object) : null;
+      canvas.style.cursor = hot ? 'pointer' : 'grab';
+      cards.forEach(c => { c.hoverT = (c === hot || c === focused) ? 1 : 0; });
+    }
+
+    // 桌面相机视差：光标微微牵引镜头，画面更"活"
+    if (isDesktop && mouseSeen && !dragging){
+      const px = Math.max(-1, Math.min(1, ndc.x));
+      const py = Math.max(-1, Math.min(1, ndc.y));
+      arCam.position.x += (px * 0.7 - arCam.position.x) * 0.04;
+      arCam.position.y += (0.3 + py * 0.45 - arCam.position.y) * 0.04;
+      arCam.lookAt(0, 0, 0);
+    }
+
+    // 卡片弹簧动画（位置/显隐/缩放/hover 全部平滑趋近）
+    cards.forEach(card => {
+      card.reveal += (card.revealT - card.reveal) * 0.07;
+      card.scale += (card.scaleT - card.scale) * 0.09;
+      card.hover += (card.hoverT - card.hover) * 0.12;
+      card.mesh.position.lerp(card.target, 0.065);
+      // 轻微悬浮呼吸
+      card.mesh.position.y += Math.sin(ts * 0.8 + card.phase) * 0.0012;
+      card.mesh.scale.setScalar(card.scale);
+      card.mat.uniforms.uTime.value = ts;
+      card.mat.uniforms.uReveal.value = card.reveal;
+      card.mat.uniforms.uHover.value = card.hover;
+    });
+
+    renderer.render(arScene, arCam);
+    requestAnimationFrame(arLoop);
+  }
+  arLoop();
+
+  // 进场：先出标题星域，再聚合第一个主题
+  applyThemeVars(0);
+  setTimeout(() => switchTheme(0, false), 600);
+  restartAuto();
+
+  // 外部接口（触摸上下滑切换主题）
+  arApi = {
+    cycle(dir){ switchTheme(curTheme + dir, true); },
+    dispose(){ stop(); }
+  };
+  // 调试/测试钩子
+  window.__arDebug = () => ({
+    theme: curTheme,
+    rotY: +world.rotation.y.toFixed(3),
+    cards: cards.map(c => ({
+      t: c.themeIdx, active: c.active, loaded: c.loaded, focused: c === focused,
+      reveal: +c.reveal.toFixed(3), hover: +c.hover.toFixed(2), scale: +c.scale.toFixed(2),
+      pos: c.mesh.position.toArray().map(v => +v.toFixed(2)),
+      base: c.base.toArray().map(v => +v.toFixed(2))
+    }))
+  });
+
+  // 章节销毁时释放 GPU（沿用 wish 的 watch 模式）
+  const cleanup = () => {
+    stop();
+    if (autoTimer) clearTimeout(autoTimer);
+    if (arApi) arApi = null;
+    cards.forEach(c => { c.mat.uniforms.uMap.value?.dispose(); c.mat.dispose(); c.mesh.geometry.dispose(); });
+    pGeo.dispose(); pMat.dispose();
+    gGeo.dispose(); gMat.dispose();
+    renderer.dispose();
+    try { renderer.forceContextLoss(); } catch(e){}  // 释放 GL 上下文
+    window.removeEventListener('resize', resizeAR);
+    window.removeEventListener('mousemove', winMove);
+    window.removeEventListener('mouseup', winUp);
+  };
+  const dbg = window.__arDebug;
+  const watchStop = setInterval(() => {
+    if (!viewerStage.isConnected || !canvas.isConnected || viewerFxState._ar !== cleanup){
+      cleanup();
+      if (window.__arDebug === dbg) window.__arDebug = null;
+      clearInterval(watchStop);
+    }
+  }, 500);
+  viewerFxState._ar = cleanup;
 }
 
 // 章节特效：每章自定义粒子 + 装饰
@@ -5358,6 +5959,11 @@ viewerStage.addEventListener('touchend', e => {
     if (dx < 0) openNextChapter();
     else if (dx > 0) openPrevChapter();
   } else if (Math.abs(dy) > 50){
+    // 上下滑 - AR 章节切换主题，其他章节切换照片
+    if (viewerMode === 'ar' && arApi){
+      arApi.cycle(dy < 0 ? 1 : -1);
+      return;
+    }
     // 上下滑 - 切换同章节内的照片
     const scene = viewerStage.querySelector('.scene');
     if (!scene || !viewerPhotos.length) return;
@@ -5553,7 +6159,8 @@ CHAPTERS.forEach(ch => {
     'ch06':'slow',
     'ch07':'wedding',
     'ch11':'future',
-    'ch14':'wedding'
+    'ch14':'wedding',
+    'ch15':'story'
   };
   ch.bgm = map[ch.id] || 'lucky';
 });
