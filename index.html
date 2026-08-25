@@ -252,12 +252,14 @@ img{-webkit-user-drag:none;user-drag:none;-webkit-touch-callout:none}
 
 /* 章节进度 */
 .viewer-dots{
-  position:fixed;right:14px;top:50%;transform:translateY(-50%);
-  z-index:40;display:none;flex-direction:column;gap:8px;
+  position:fixed;left:50%;bottom:max(env(safe-area-inset-bottom),18px);transform:translateX(-50%);
+  z-index:40;display:none;flex-direction:row;gap:10px;
+  padding:8px 14px;border-radius:999px;
+  background:rgba(0,0,0,.35);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
 }
 .viewer-dots.show{display:flex}
-.vdot{width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.3);border:none;padding:0;cursor:pointer;transition:all .3s ease}
-.vdot.active{background:#ffb0c4;transform:scale(1.8)}
+.vdot{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.4);border:none;padding:0;cursor:pointer;transition:all .3s ease}
+.vdot.active{background:#ffb0c4;transform:scale(1.8);box-shadow:0 0 10px rgba(255,176,196,.7)}
 
 /* 许愿页特殊样式 */
 .viewer-slide.wish{background:radial-gradient(ellipse at center,#2a1840 0%,#08040e 100%)}
@@ -1140,18 +1142,6 @@ img{-webkit-user-drag:none;user-drag:none;-webkit-touch-callout:none}
 }
 
 /* 章节底部隐藏文字下的"翻页/换章"提示 */
-.scene-hint{
-  position:absolute;bottom:max(env(safe-area-inset-bottom),10px);
-  left:50%;transform:translateX(-50%);z-index:6;
-  display:flex;gap:18px;
-  font-size:.7rem;letter-spacing:.3em;color:rgba(255,255,255,.55);
-  text-shadow:0 1px 4px rgba(0,0,0,.8);
-}
-.scene-hint span{display:flex;align-items:center;gap:6px}
-.scene-hint .ico{display:inline-block;width:14px;height:14px;
-  border:1px solid currentColor;border-radius:50%;position:relative}
-.scene-hint .ico::before{content:'';position:absolute;inset:3px;
-  background:currentColor;border-radius:50%;opacity:.5}
 
 /* ============================================================ */
 /* 视频章节 —— 胶片条 + 播放器弹窗                                */
@@ -1537,73 +1527,380 @@ const CHAPTERS = [
 ];
 
 // ============================================================
-// 1. Splash 星空漩涡
+// 1. Splash 3D 银河：真实太阳系 + 多星系 + 可拖拽/缩放
 // ============================================================
 (() => {
   const c = document.getElementById('splashCanvas');
-  const ctx = c.getContext('2d');
-  const dpr = Math.min(window.devicePixelRatio, 2);
-  let W, H, stars = [];
-  function resize(){
-    W = c.width = window.innerWidth * dpr;
-    H = c.height = window.innerHeight * dpr;
-    c.style.width = window.innerWidth + 'px';
-    c.style.height = window.innerHeight + 'px';
-    ctx.setTransform(dpr,0,0,dpr,0,0);
+  if (!c || typeof THREE === 'undefined') return;
+  const T = THREE;
+  const dpr = Math.min(window.devicePixelRatio || 1, isMobile ? 1.25 : 1.75);
+
+  const renderer = new T.WebGLRenderer({ canvas: c, alpha: true, antialias: true, preserveDrawingBuffer: true });
+  renderer.setPixelRatio(dpr);
+  renderer.setSize(window.innerWidth, window.innerHeight, false);
+  renderer.setClearColor(0x000000, 0);
+
+  const scene = new T.Scene();
+  const camera = new T.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 2000);
+  camera.position.set(0, 8, 90);
+  camera.lookAt(0, 0, 0);
+
+  // 相机控制状态（球面坐标：yaw 绕 Y 轴、pitch 仰角、distance 距离）
+  let yaw = 0, pitch = 0.05, distance = 90;
+  let targetYaw = 0, targetPitch = 0.05, targetDistance = 90, targetFOV = 60;
+  let isDragging = false, lastX = 0, lastY = 0;
+  function applyCamera(){
+    const cp = Math.cos(pitch);
+    camera.position.set(Math.sin(yaw)*cp*distance, Math.sin(pitch)*distance, Math.cos(yaw)*cp*distance);
+    camera.lookAt(0, 0, 0);
   }
-  resize();
-  window.addEventListener('resize', resize);
-  function initStars(){
-    stars = [];
-    const maxDim = Math.max(window.innerWidth, window.innerHeight);
-    for (let i=0;i<200;i++){
-      const angle = Math.random()*Math.PI*2;
-      const radius = 30 + Math.random()*maxDim*.6;
-      stars.push({
-        angle, radius,
-        speed: .0005 + Math.random()*.001,
-        size: .3 + Math.random()*1.4,
-        hue: Math.random()<.7 ? 280+Math.random()*40 : 330+Math.random()*40,
-        alpha: .4+Math.random()*.5,
-        drift: (Math.random()-.5)*.0003
-      });
-    }
-  }
-  initStars();
-  function draw(){
-    const w = window.innerWidth, h = window.innerHeight;
-    ctx.fillStyle = 'rgba(8,4,14,.25)';
-    ctx.fillRect(0,0,w,h);
-    const cx = w/2, cy = h/2;
-    const haloR = Math.min(w,h)*.35;
-    const halo = ctx.createRadialGradient(cx,cy,0,cx,cy,haloR);
-    halo.addColorStop(0,'rgba(255,180,200,.12)');
-    halo.addColorStop(.3,'rgba(180,120,255,.08)');
-    halo.addColorStop(1,'rgba(0,0,0,0)');
-    ctx.fillStyle = halo; ctx.fillRect(0,0,w,h);
-    stars.forEach(s => {
-      s.angle += s.speed; s.radius += s.drift;
-      const r = s.radius;
-      const x = cx + Math.cos(s.angle)*r, y = cy + Math.sin(s.angle)*r;
-      const fade = Math.max(0, Math.min(1, 1 - r/(haloR*1.4)));
-      const sz = s.size*(1 + (1-fade)*.8);
-      ctx.fillStyle = `hsla(${s.hue},70%,75%,${s.alpha*fade})`;
-      ctx.beginPath(); ctx.arc(x,y,sz,0,Math.PI*2); ctx.fill();
-      if (r < haloR){
-        const tx = cx + Math.cos(s.angle - s.speed*3)*r;
-        const ty = cy + Math.sin(s.angle - s.speed*3)*r;
-        ctx.strokeStyle = `hsla(${s.hue},70%,75%,${s.alpha*fade*.4})`;
-        ctx.lineWidth = sz*.6;
-        ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(tx,ty); ctx.stroke();
+
+  // 太阳 —— 程序化湍流着色器（无外部贴图）
+  const sunMat = new T.ShaderMaterial({
+    uniforms: { uTime: { value: 0 }, uHot: { value: 1.0 } },
+    vertexShader: `varying vec3 vN; void main(){ vN = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0);}`,
+    fragmentShader: `
+      varying vec3 vN;
+      uniform float uTime;
+      uniform float uHot;
+      // 紧凑伪噪声
+      float h(vec3 p){ return fract(sin(dot(p,vec3(127.1,311.7,74.7)))*43758.5453); }
+      float n(vec3 p){
+        vec3 i=floor(p), f=fract(p);
+        f=f*f*(3.0-2.0*f);
+        float a=h(i), b=h(i+vec3(1,0,0)), c=h(i+vec3(0,1,0)), d=h(i+vec3(1,1,0));
+        float e=h(i+vec3(0,0,1)), g=h(i+vec3(1,0,1)), h2=h(i+vec3(0,1,1)), k=h(i+vec3(1,1,1));
+        return mix(mix(mix(a,b,f.x),mix(c,d,f.x),f.y),mix(mix(e,g,f.x),mix(h2,k,f.x),f.y),f.z);
       }
-      if (r < 5 || r > Math.max(w,h)*.8){
-        s.angle = Math.random()*Math.PI*2;
-        s.radius = Math.max(w,h)*.6;
+      float fbm(vec3 p){
+        float v=0.0, a=0.5;
+        for(int i=0;i<5;i++){ v+=a*n(p); p*=2.02; a*=0.5; }
+        return v;
+      }
+      void main(){
+        vec3 p = normalize(vN);
+        float q = fbm(p*3.5 + vec3(uTime*0.18));
+        float q2 = fbm(p*9.0 + vec3(-uTime*0.3));
+        float t = clamp(q*0.7 + q2*0.3, 0.0, 1.0);
+        vec3 c1=vec3(1.0,0.95,0.7), c2=vec3(1.0,0.55,0.18), c3=vec3(0.85,0.15,0.05);
+        vec3 col = mix(c1,c2,smoothstep(0.3,0.55,t));
+        col = mix(col, c3, smoothstep(0.55,0.85,t));
+        col *= uHot;
+        gl_FragColor = vec4(col, 1.0);
+      }`,
+    transparent: false
+  });
+  const sun = new T.Mesh(new T.SphereGeometry(3, 64, 32), sunMat);
+  scene.add(sun);
+
+  // 太阳光晕（BackSide 加法）
+  const coronaMat = new T.ShaderMaterial({
+    uniforms: { uTime: { value: 0 } },
+    vertexShader: `varying vec3 vN; void main(){ vN = normalize(normalMatrix * normal); gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0);}`,
+    fragmentShader: `
+      varying vec3 vN;
+      uniform float uTime;
+      void main(){
+        float rim = pow(1.0 - abs(vN.z), 2.4);
+        vec3 col = mix(vec3(1.0,0.55,0.2), vec3(1.0,0.85,0.4), rim);
+        gl_FragColor = vec4(col*rim*1.4, rim*0.75);
+      }`,
+    transparent: true,
+    blending: T.AdditiveBlending,
+    depthWrite: false,
+    side: T.BackSide
+  });
+  const corona = new T.Mesh(new T.SphereGeometry(4.6, 48, 24), coronaMat);
+  scene.add(corona);
+
+  // 行星系统（真实相对大小 + 真实公转比例）
+  const PLANETS = [
+    { name:'mercury', r:0.42, d:6,  color:0xa39080, speed:4.15, axial:0.02, rough:0.6 },
+    { name:'venus',   r:0.70, d:9,  color:0xe8c78a, speed:1.62, axial:0.005, cloud:0xd9b078 },
+    { name:'earth',   r:0.75, d:12, color:0x2c6cb8, speed:1.0,  axial:0.05, atm:true },
+    { name:'mars',    r:0.55, d:15, color:0xb85a30, speed:0.53, axial:0.045, polar:0xeae0d0 },
+    { name:'jupiter', r:2.2,  d:22, color:0xc8a878, speed:0.084, axial:0.12, bands:true },
+    { name:'saturn',  r:1.9,  d:27, color:0xe8d18a, speed:0.034, axial:0.11, rings:true },
+    { name:'uranus',  r:1.3,  d:32, color:0x7fc8d8, speed:0.012, axial:0.07, tilt:0.5 },
+    { name:'neptune', r:1.2,  d:37, color:0x4060d0, speed:0.006, axial:0.07 }
+  ];
+  const planetMeshes = [];
+  const planetOrbits = [];
+
+  PLANETS.forEach((p) => {
+    let mat;
+    if (p.bands){
+      // 木星：条带 shader
+      mat = new T.ShaderMaterial({
+        uniforms: { uTime:{value:0} },
+        vertexShader: `varying vec3 vP; void main(){ vP = position; gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,
+        fragmentShader: `
+          varying vec3 vP;
+          uniform float uTime;
+          float h(vec3 p){ return fract(sin(dot(p,vec3(127.1,311.7,74.7)))*43758.5453); }
+          float n(vec3 p){
+            vec3 i=floor(p),f=fract(p); f=f*f*(3.0-2.0*f);
+            return mix(mix(mix(h(i),h(i+vec3(1,0,0)),f.x),mix(h(i+vec3(0,1,0)),h(i+vec3(1,1,0)),f.x),f.y),
+                       mix(mix(h(i+vec3(0,0,1)),h(i+vec3(1,0,1)),f.x),mix(h(i+vec3(0,1,1)),h(i+vec3(1,1,1)),f.x),f.y),f.z);
+          }
+          void main(){
+            vec3 p = normalize(vP);
+            float lat = p.y;                          // -1..1
+            float bands = sin(lat*16.0 + n(p*4.0)*0.6) * 0.5 + 0.5;
+            float turb = n(p*8.0) * 0.4;
+            vec3 a = vec3(0.85,0.72,0.55);           // 浅褐
+            vec3 b = vec3(0.55,0.38,0.22);           // 深褐
+            vec3 c = vec3(0.95,0.85,0.7);            // 米白
+            vec3 col = mix(a, b, bands);
+            col = mix(col, c, smoothstep(0.4, 0.55, bands)*0.6);
+            col = mix(col, c*0.5, turb);
+            gl_FragColor = vec4(col, 1.0);
+          }`
+      });
+    } else {
+      mat = new T.MeshBasicMaterial({ color: p.color });
+    }
+    const m = new T.Mesh(new T.SphereGeometry(p.r, 48, 32), mat);
+    m.userData = { ...p, angle: Math.random() * Math.PI * 2 };
+    scene.add(m);
+    planetMeshes.push(m);
+
+    // 轨道细线
+    const orbitGeo = new T.RingGeometry(p.d - 0.02, p.d + 0.02, 128, 1);
+    const orbitMat = new T.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.08, side: T.DoubleSide });
+    const orbit = new T.Mesh(orbitGeo, orbitMat);
+    orbit.rotation.x = Math.PI / 2;
+    scene.add(orbit);
+    planetOrbits.push(orbit);
+
+    // 大气层（地球）
+    if (p.atm){
+      const atmMat = new T.ShaderMaterial({
+        uniforms:{},
+        vertexShader: `varying vec3 vN; void main(){ vN = normalize(normalMatrix*normal); gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,
+        fragmentShader: `
+          varying vec3 vN;
+          void main(){
+            float fres = pow(1.0 - abs(vN.z), 2.0);
+            gl_FragColor = vec4(0.45, 0.75, 1.0, fres*0.65);
+          }`,
+        transparent: true, blending: T.AdditiveBlending, side: T.BackSide, depthWrite: false
+      });
+      m.add(new T.Mesh(new T.SphereGeometry(p.r*1.08, 32, 16), atmMat));
+    }
+    // 土星环
+    if (p.rings){
+      const ringGeo = new T.RingGeometry(p.r*1.4, p.r*2.5, 96, 1);
+      const ringMat = new T.ShaderMaterial({
+        uniforms:{},
+        vertexShader:`varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,
+        fragmentShader:`
+          varying vec2 vUv;
+          void main(){
+            float t = vUv.y;
+            float ring = smoothstep(0.0, 0.18, t) * (1.0 - smoothstep(0.55, 1.0, t));
+            vec3 c1 = vec3(0.95,0.85,0.6);
+            vec3 c2 = vec3(0.5,0.35,0.22);
+            vec3 col = mix(c1, c2, abs(t-0.4)*2.0);
+            gl_FragColor = vec4(col, ring*0.85);
+          }`,
+        transparent: true, side: T.DoubleSide, depthWrite: false
+      });
+      const ring = new T.Mesh(ringGeo, ringMat);
+      ring.rotation.x = Math.PI/2;
+      m.add(ring);
+    }
+    // 自转轴倾斜（天王星）
+    if (p.tilt) m.rotation.z = p.tilt;
+  });
+
+  // 远景星系生成器
+  function buildGalaxy(N, scaleR){
+    const geo = new T.BufferGeometry();
+    const pos = new T.Float32BufferAttribute(N*3, 3);
+    const col = new T.Float32BufferAttribute(N*3, 3);
+    const arms = 2;
+    for (let i = 0; i < N; i++){
+      const arm = i % arms;
+      const t = (i / N) * 5;
+      const angle = arm * Math.PI + t * Math.PI * 1.3 + (Math.random()-0.5)*0.45;
+      const r = t * scaleR * 0.18 + Math.random() * scaleR * 0.12;
+      pos.setXYZ(i, Math.cos(angle)*r, (Math.random()-0.5)*scaleR*0.05, Math.sin(angle)*r);
+      const hue = Math.random();
+      if (hue < 0.6){ col.setXYZ(i, 1.0, 0.7+Math.random()*0.2, 0.95); }
+      else if (hue < 0.85){ col.setXYZ(i, 0.7, 0.6, 1.0); }
+      else { col.setXYZ(i, 1.0, 0.85, 0.7); }
+    }
+    geo.setAttribute('position', pos);
+    geo.setAttribute('color', col);
+    const mat = new T.PointsMaterial({
+      size: 0.7, vertexColors: true, transparent: true, opacity: 0.85,
+      blending: T.AdditiveBlending, depthWrite: false, sizeAttenuation: true
+    });
+    return new T.Points(geo, mat);
+  }
+
+  const mainGalaxy = buildGalaxy(isMobile ? 1500 : 3500, 700);
+  mainGalaxy.position.set(0, 30, -250);
+  scene.add(mainGalaxy);
+
+  for (let i = 0; i < 3; i++){
+    const g = buildGalaxy(isMobile ? 300 : 800, 350);
+    const a = (i/3)*Math.PI*2 + Math.random()*0.4;
+    g.position.set(Math.cos(a)*520, (Math.random()-0.5)*120, Math.sin(a)*520 - 250);
+    g.scale.setScalar(0.6);
+    scene.add(g);
+  }
+
+  // 星空多层视差
+  function buildStarfield(N, rmin, rmax){
+    const geo = new T.BufferGeometry();
+    const pos = new T.Float32BufferAttribute(N*3, 3);
+    const col = new T.Float32BufferAttribute(N*3, 3);
+    for (let i = 0; i < N; i++){
+      const r = rmin + Math.random()*(rmax-rmin);
+      const theta = Math.random()*Math.PI*2;
+      const phi = Math.acos(2*Math.random()-1);
+      pos.setXYZ(i, r*Math.sin(phi)*Math.cos(theta), r*Math.cos(phi), r*Math.sin(phi)*Math.sin(theta));
+      const h = Math.random();
+      if (h < 0.55){ col.setXYZ(i, 1, 1, 1); }
+      else if (h < 0.8){ col.setXYZ(i, 0.78, 0.85, 1); }
+      else { col.setXYZ(i, 1, 0.85, 0.7); }
+    }
+    geo.setAttribute('position', pos);
+    geo.setAttribute('color', col);
+    return new T.Points(geo, new T.PointsMaterial({
+      size: 0.5, vertexColors: true, transparent: true, opacity: 0.9,
+      blending: T.AdditiveBlending, depthWrite: false, sizeAttenuation: true
+    }));
+  }
+  scene.add(buildStarfield(isMobile?60:140, 80, 220));     // 前景
+  scene.add(buildStarfield(isMobile?100:220, 220, 520));   // 中景
+  scene.add(buildStarfield(isMobile?150:320, 520, 1200));  // 远景
+
+  // 拖拽旋转（pointer + touch 兼容）
+  const _spMove = e => { onMove(e.clientX, e.clientY); };
+  const _spUp = () => { isDragging = false; };
+  function onDown(x, y){
+    isDragging = true; lastX = x; lastY = y;
+  }
+  function onMove(x, y){
+    if (!isDragging) return;
+    const dx = x - lastX, dy = y - lastY;
+    lastX = x; lastY = y;
+    targetYaw -= dx * 0.005;
+    targetPitch += dy * 0.005;
+    targetPitch = Math.max(-1.2, Math.min(1.2, targetPitch));
+  }
+  c.addEventListener('pointerdown', e => { onDown(e.clientX, e.clientY); e.preventDefault(); });
+  window.addEventListener('pointermove', _spMove);
+  window.addEventListener('pointerup', _spUp);
+  window.addEventListener('pointercancel', _spUp);
+  // 缩放：滚轮 + 双指
+  c.addEventListener('wheel', e => {
+    e.preventDefault();
+    targetDistance = Math.max(30, Math.min(120, targetDistance + e.deltaY * 0.06));
+  }, { passive: false });
+  let pinchD0 = 0, pinchTar0 = 0;
+  c.addEventListener('touchstart', e => {
+    if (e.touches.length === 2){
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      pinchD0 = Math.hypot(dx, dy);
+      pinchTar0 = targetDistance;
+    }
+  }, { passive: true });
+  const _spTouchMove = e => {
+    if (e.touches.length === 2 && pinchD0 > 0){
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      const d = Math.hypot(dx, dy);
+      targetDistance = Math.max(30, Math.min(120, pinchTar0 * (pinchD0 / d)));
+    }
+  };
+  c.addEventListener('touchmove', _spTouchMove, { passive: true });
+  const _spResize = () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight, false);
+  };
+  window.addEventListener('resize', _spResize);
+
+  // 动画循环
+  let alive = true;
+  const t0 = performance.now();
+  function animate(){
+    if (!alive) return;
+    const t = (performance.now() - t0) * 0.001;
+
+    sunMat.uniforms.uTime.value = t;
+    coronaMat.uniforms.uTime.value = t;
+    planetMeshes.forEach(m => {
+      if (m.material.uniforms && m.material.uniforms.uTime) m.material.uniforms.uTime.value = t;
+      const d = m.userData;
+      d.angle += 0.05 * d.speed * 0.05; // 慢一点，方便观看
+      m.position.x = Math.cos(d.angle) * d.d;
+      m.position.z = Math.sin(d.angle) * d.d;
+      m.rotation.y += d.axial;
+    });
+    mainGalaxy.rotation.z = t * 0.03;
+    mainGalaxy.scale.setScalar(1 + Math.sin(t*0.4)*0.025);
+    // 自动相机推近：8 秒内 90→60
+    if (t < 8 && targetDistance > 60) targetDistance = 90 - (t/8)*30;
+    // 平滑插值
+    yaw += (targetYaw - yaw) * 0.08;
+    pitch += (targetPitch - pitch) * 0.08;
+    distance += (targetDistance - distance) * 0.06;
+    camera.fov += (targetFOV - camera.fov) * 0.06;
+    camera.updateProjectionMatrix();
+    applyCamera();
+    renderer.render(scene, camera);
+    requestAnimationFrame(animate);
+  }
+  animate();
+
+  // 调试 / 外部触发接口
+  window.__splashDebug = () => ({
+    yaw, pitch, distance, fov: camera.fov,
+    planets: planetMeshes.length,
+    sun: sun.position.toArray(),
+    galaxy: mainGalaxy.position.toArray()
+  });
+  window.__splashTriggerDive = () => {
+    targetDistance = 6;
+    targetPitch = -0.2;
+    targetFOV = 85;
+  };
+  window.__disposeSplash = () => {
+    alive = false;
+    // 移除全局监听（避免泄漏到章节视图）
+    window.removeEventListener('pointermove', _spMove);
+    window.removeEventListener('pointerup', _spUp);
+    window.removeEventListener('pointercancel', _spUp);
+    window.removeEventListener('resize', _spResize);
+    c.removeEventListener('touchmove', _spTouchMove);
+    // 释放场景所有几何/材质 + 渲染器
+    renderer.renderLists.dispose();
+    scene.traverse(obj => {
+      if (obj.geometry) obj.geometry.dispose && obj.geometry.dispose();
+      if (obj.material) {
+        if (Array.isArray(obj.material)) obj.material.forEach(m => m.dispose && m.dispose());
+        else obj.material.dispose && obj.material.dispose();
       }
     });
-    requestAnimationFrame(draw);
-  }
-  draw();
+    renderer.dispose();
+    // 强制释放 WebGL 上下文（避免浏览器上下文配额耗尽）
+    if (renderer.forceContextLoss) renderer.forceContextLoss();
+    // 断开画布与 GL 的关联
+    try {
+      const gl = c.getContext('webgl2') || c.getContext('webgl');
+      if (gl && gl.getExtension('WEBGL_lose_context')) gl.getExtension('WEBGL_lose_context').loseContext();
+    } catch(e){}
+    // 清空调试句柄
+    delete window.__splashDebug;
+    delete window.__splashTriggerDive;
+    delete window.__disposeSplash;
+  };
 })();
 
 // ============================================================
@@ -1877,7 +2174,7 @@ const CHAPTERS = [
   // ============== (1) 玫瑰曲线粒子云：Morph Shader ==============
   // 用 uProgress 让粒子在 散开 → 玫瑰曲线 → 心形 之间 morph
   // Fragment 用 gl_PointCoord 画 5 瓣花瓣 sprite
-  const roseParticleCount = 1500;
+  const roseParticleCount = isDesktop ? 3200 : 1500;  // 提升玫瑰粒子密度，让特效更醒目
   const rosePosScat = new Float32Array(roseParticleCount * 3);
   const rosePosRose = new Float32Array(roseParticleCount * 3);
   const rosePosHeart = new Float32Array(roseParticleCount * 3);
@@ -2028,8 +2325,8 @@ const CHAPTERS = [
   // ============== (2) 玫瑰绽放：BLOOM stage ==============
   // 程序化玫瑰 + Fresnel 花瓣 shader + 金色花蕊
   const roseGroup = new THREE.Group();
-  const petalLayers = 4;
-  const petalsPerLayer = 7;
+  const petalLayers = 6;  // 4 → 6 层，更饱满
+  const petalsPerLayer = 9;  // 7 → 9 瓣/层，更立体
   for (let layer = 0; layer < petalLayers; layer++){
     const layerR = 0.15 + layer * 0.18;
     const layerTilt = (layer - petalLayers / 2) * 0.35;
@@ -2086,7 +2383,7 @@ const CHAPTERS = [
   // ============== (3) 飘落玫瑰花瓣（PETAL_RAIN，Fresnel 材质） ==============
   const fallingPetals = [];
   const petalGeo = new THREE.PlaneGeometry(0.3, 0.18);
-  for (let i = 0; i < 60; i++){
+  for (let i = 0; i < 140; i++){  // 加大花瓣密度，从 60 → 140（满屏飘落感）
     const colorHex = new THREE.Color().setHSL(0.94 + Math.random()*0.04, 0.7, 0.55 + Math.random()*0.15).getHex();
     const m = makePetalGlowMaterial(colorHex);
     const p = new THREE.Mesh(petalGeo, m);
@@ -2631,7 +2928,7 @@ const CHAPTERS = [
     '回忆如花瓣飘落',
     '把这些都打包给你'
   ];
-  const STAGE_DURATION = 1600;  // 每阶段 1.6 秒，5 阶段共 8 秒
+  const STAGE_DURATION = 3000;  // 每阶段 3 秒，5 阶段共 15 秒（用户明确希望拉长体验时间）
   // 阶段计时以 loader 实际显示时刻（__loaderStartTime，点击"进入相册"后设置）为准；
   // splash 页停留时间不算，否则一进 loader 就直接跳到 ALL 阶段
   // 当进入阶段 2 后，hex 文案由 phase2Quotes 管理，不被 setStage 覆盖
@@ -3481,7 +3778,7 @@ async function buildSphereWall(photosData){
   if (window.__setMobileRose) window.__setMobileRose(1);
 
   // ========== 阶段 2：loader 内限时预加载前两章，其余进相册后后台加载 ==========
-  const MIN_LOADER_DURATION = 6500;
+  const MIN_LOADER_DURATION = 15000;  // 与 5 阶段 × 3 秒同步，保证每段特效用户都能看到
   if (typeof CHAPTERS !== 'undefined') {
     let photosByFolder = window.__photosByFolder;
     if (!photosByFolder){
@@ -3514,7 +3811,7 @@ async function buildSphereWall(photosData){
 
     // 等 DNA + 玫瑰阶段轮播完（STAGE_DURATION*4 ≈ 6.4s）再切阶段 2 文案，
     // 否则本地加载太快会立刻顶掉玫瑰特效的阶段标题
-    const STAGE_WAIT = 4 * 1600;
+    const STAGE_WAIT = 4 * 3000;  // 与 STAGE_DURATION 同步：等 4 个 DNA/玫瑰阶段轮播完（约 12 秒）
     await new Promise(r => setTimeout(r, Math.max(0, (window.__loaderStartTime + STAGE_WAIT) - performance.now())));
 
     // 切换文案（阶段 2）
@@ -3775,7 +4072,9 @@ function animateHome(){
     }
   });
 
-  homeRenderer.render(homeScene, homeCamera);
+  if (!window.__homePaused){
+    homeRenderer.render(homeScene, homeCamera);
+  }
   requestAnimationFrame(animateHome);
 }
 animateHome();
@@ -3804,6 +4103,25 @@ document.getElementById('openChapterBtn').addEventListener('click', () => {
     if (CHAPTERS[i].folder){ startIdx = i; break; }
   }
   openChapter(startIdx);
+});
+
+// 键盘左右切换章节 / 上下切换照片（章节视图 + 大图预览通用）
+window.addEventListener('keydown', e => {
+  // 大图预览页：上下切换同章节照片，左右切换章节
+  if (previewEl.classList.contains('active')){
+    if (e.key === 'ArrowLeft'){ e.preventDefault(); previewPrevChapter(); }
+    else if (e.key === 'ArrowRight'){ e.preventDefault(); previewNextChapter(); }
+    else if (e.key === 'ArrowUp'){ e.preventDefault(); previewPrev(); }
+    else if (e.key === 'ArrowDown'){ e.preventDefault(); previewNext(); }
+    else if (e.key === 'Escape'){ e.preventDefault(); closePreview(); }
+    return;
+  }
+  // 章节视图：左右切章节
+  if (viewerEl.classList.contains('active')){
+    if (e.key === 'ArrowLeft'){ e.preventDefault(); openPrevChapter(); }
+    else if (e.key === 'ArrowRight'){ e.preventDefault(); openNextChapter(); }
+    else if (e.key === 'Escape'){ e.preventDefault(); viewerBack.click(); }
+  }
 });
 
 // 双击屏幕重置（PC 调试）
@@ -3916,10 +4234,13 @@ function closePreview(){
   previewStage.innerHTML = '';
   // 从章节视图打开的：章节还在下层，直接关掉回到章节即可
   if (previewFromChapter){
+    window.__homePaused = true;  // 章节视图仍占用，home 保持暂停
     const scene = viewerStage.querySelector('.scene');
     if (scene) startAutoAdvance(scene);
     return;
   }
+  // 从首页打开：恢复 home 渲染
+  window.__homePaused = false;
   homeEl.style.display = 'block';
   document.getElementById('homeTitle').style.display = 'block';
   document.getElementById('homeHint').style.display = 'block';
@@ -4015,6 +4336,9 @@ async function openChapter(idx){
   const ch = CHAPTERS[idx];
   viewerEl.classList.add('active');
   homeEl.style.display = 'none';
+  // 进入章节：暂停 home 渲染 + 释放上一页章节 3D 资源
+  window.__homePaused = true;
+  destroyChapterThree();
   viewerBack.classList.add('show');
   document.getElementById('homeTitle').style.display = 'none';
   document.getElementById('homeHint').style.display = 'none';
@@ -4404,7 +4728,7 @@ function startAutoAdvance(scene){
   clearAutoAdvance();
   if (viewerPhotos.length <= 1) return;  // 单张无需自动切换
   // 放慢节奏：保证用户有时间读完文案 + 图片完全加载后再切换（避免花屏）
-  const interval = viewerMode === 'book' ? 8000 : (viewerMode === 'stack' ? 7000 : 6500);
+  const interval = viewerMode === 'book' ? 11000 : (viewerMode === 'stack' ? 10000 : 9500);
   autoAdvTimer = setTimeout(async () => {
     if (!scene.isConnected) return;
     // 计算下一张的索引
@@ -4463,13 +4787,7 @@ function renderChapterScene(){
       <div class="scene-en">${ch.en}</div>
       <div class="scene-text">${(ch.text || '').split('').map(c => `<span class="ch">${c === '\n' ? '<br>' : c}</span>`).join('')}${isDesktop ? '<span class="text-sweep"></span>' : ''}</div>
     </div>
-    <div class="scene-counter">${viewerPhotoIdx + 1} / ${viewerPhotos.length}</div>
-    <div class="scene-hint">
-      <span><span class="ico"></span>左 右 · 翻 章</span>
-      ${viewerMode === 'filmstrip'
-        ? '<span><span class="ico"></span>点 击 · 播 放</span>'
-        : '<span><span class="ico"></span>上 下 · 换 照</span><span><span class="ico"></span>点 击 · 原 图</span>'}
-    </div>`;
+    <div class="scene-counter">${viewerPhotoIdx + 1} / ${viewerPhotos.length}</div>`;
   viewerStage.appendChild(scene);
 
   // 渲染 3D 相册
@@ -6006,6 +6324,8 @@ function openPrevChapter(){
 // 返回首页
 viewerBack.addEventListener('click', () => {
   viewerEl.classList.remove('active');
+  window.__homePaused = false;  // 恢复 home 渲染
+  destroyChapterThree();       // 释放当前章节的 3D 资源
   homeEl.style.display = 'block';
   viewerBack.classList.remove('show');
   viewerDots.classList.remove('show');
@@ -6153,6 +6473,21 @@ const BGMS = {
       ['C3','G3','C4'],['C3','G3','C4'],['F3','A3','C4'],['F3','A3','C4'],
       ['G3','B3','D4'],['G3','B3','D4'],['Am3','E4','A4'],['C3','G3','C4']
     ]
+  },
+  cosmic: {  // 银河星空 —— Eb 小调 ~52 BPM，史诗 / 太空感，低频垫底 + 高频闪烁
+    tempo: 52, type:'sine', vol:.085, bassVol:.08, padVol:.05,
+    melody: [
+      {n:'Eb5',d:2},{n:'G5',d:1},{n:'Bb5',d:1},
+      {n:'Ab5',d:2},{n:'G5',d:1},{n:'Eb5',d:1},
+      {n:'Bb5',d:2},{n:'C6',d:1},{n:'Eb6',d:1},
+      {n:'Bb5',d:2.5},
+      {n:'Ab5',d:1.5},{n:'G5',d:.5},{n:'Eb5',d:2},
+      {n:'F5',d:1.5},{n:'G5',d:.5},{n:'Ab5',d:2.5}
+    ],
+    chords: [
+      ['Eb3','Bb3','Eb4'],['Eb3','Bb3','Eb4'],['Ab3','Eb4','Ab4'],['Ab3','Eb4','Ab4'],
+      ['Bb3','F4','Bb4'],['Bb3','F4','Bb4'],['Eb3','G3','Bb3'],['Eb3','Bb3','Eb4']
+    ]
   }
 };
 
@@ -6244,19 +6579,49 @@ function switchBGM(name){
   playBGM(name);
 }
 
-
+// 提前激活 AudioContext：首次任意手势（移动 / 触摸 / 点击）创建并 resume
+// 这样 splash 期间就有 BGM（用 cosmic），无需等到 openBtn
+function _lazyInitAudio(){
+  if (audioCtx) return;
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  musicPlaying = true;
+}
+['pointerdown','touchstart','keydown'].forEach(ev => {
+  window.addEventListener(ev, () => {
+    _lazyInitAudio();
+    if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+  }, { once: false, passive: true });
+});
+// iOS 后台返回时唤醒音频
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+});
 
 // ============================================================
 // 6. 启动
 // ============================================================
 document.getElementById('openBtn').addEventListener('click', async () => {
   window.openTime = Date.now();
+  startMusic();
+  // splash 阶段：播银河专属 BGM（cosmic），2.5 秒俯冲动画
+  switchBGM('cosmic');
+  if (window.__splashTriggerDive) window.__splashTriggerDive();
+  // 俯冲动画进行到 1.8s 时，提前释放 splash WebGL 资源（避免和 loader 抢 GPU）
+  await new Promise(r => setTimeout(r, 1800));
+  if (window.__disposeSplash) window.__disposeSplash();
+  // 俯冲动画结束后再隐藏 splash + 切到 lucky
+  await new Promise(r => setTimeout(r, 700));
   document.getElementById('splash').classList.add('hidden');
   setTimeout(() => document.getElementById('splash').remove(), 1300);
-  startMusic();
-  switchBGM('lucky');  // 首页（球面）播 lucky 风格的 BGM（小幸运）
-  const photosData = await loadPhotosData();
-  await buildSphereWall(photosData);
+  switchBGM('lucky');  // 切到首页（小幸运）
+  // 防御性：即使 photos.json 失败，也要把首页建出来（空数据），让用户至少能点回忆录
+  try {
+    const photosData = await loadPhotosData();
+    await buildSphereWall(photosData);
+  } catch (e) {
+    console.error('[openBtn] buildSphereWall failed:', e);
+    try { await buildSphereWall({}); } catch(e2) { console.error('[openBtn] empty build also failed:', e2); }
+  }
 });
 </script>
 </body>
