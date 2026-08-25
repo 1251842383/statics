@@ -465,7 +465,7 @@ img{-webkit-user-drag:none;user-drag:none;-webkit-touch-callout:none}
 
 /* 加载进度 */
 #loader{
-  position:fixed;inset:0;z-index:50;
+  position:fixed;inset:0;z-index:10000;
   background:radial-gradient(ellipse at center,#0a0618 0%,#050310 60%,#000 100%);
   display:none;flex-direction:column;align-items:center;justify-content:center;
   color:#fff;overflow:hidden;
@@ -641,6 +641,30 @@ img{-webkit-user-drag:none;user-drag:none;-webkit-touch-callout:none}
 }
 @keyframes sceneTitleIn{to{opacity:1;transform:translateY(0)}}
 @keyframes sceneTextIn{to{opacity:1}}
+
+/* ============================================================ */
+/* 桌面端布局适配：让大屏更舒展，照片更大、文案更大、左右留白 */
+/* ============================================================ */
+.is-desktop .scene-frame{height:68vh}
+.is-desktop .scene-info{
+  max-width:780px;margin:0 auto;padding:0 60px 40px;
+}
+.is-desktop .scene-title{
+  font-size:clamp(2rem,3.6vw,3.4rem);letter-spacing:.4em;
+}
+.is-desktop .scene-en{font-size:.95rem;letter-spacing:.55em;margin-bottom:24px}
+.is-desktop .scene-text{
+  font-size:clamp(1.05rem,1.4vw,1.3rem);line-height:2.4;max-width:680px;
+}
+/* book 在大屏更宽 */
+.is-desktop .book{width:auto;max-width:640px;height:90%}
+/* flow 大屏更多卡片 */
+.is-desktop .flow-card{width:clamp(220px,24vw,360px);height:clamp(140px,16vw,220px)}
+/* stack cinema 大屏更大 */
+.is-desktop .cinema-hero{max-width:920px;max-height:78vh}
+.is-desktop .cinema-thumbs{max-width:920px}
+/* 文案层文字扫光在大屏更显眼 */
+.is-desktop .scene-info{padding-bottom:60px}
 
 /* ============================================================ */
 /* ============================================================ */
@@ -1530,6 +1554,12 @@ const CHAPTERS = [
     tdc.style.display = 'none';
     // 让 2D 层接管视觉，下面只跑 drawFx
   } else {
+  // 多阶段轮换控制器：每个 stage 显示一组 3D 对象，到时间切下一个
+  let _loaderRunning = true;
+  window.__stopLoaderThree = () => { _loaderRunning = false; };
+  let _stageIdx = 0;  // 提前声明：rose effects 的 shader uniforms 需要读取
+  const _stageGroups = { DNA: [], ROSE_CLOUD: [], BLOOM: [], PETAL_RAIN: [], ALL: [] };
+
   const renderer = new THREE.WebGLRenderer({ canvas: tdc, alpha: true, antialias: true });
   renderer.setPixelRatio(dpr);
   renderer.setSize(window.innerWidth, window.innerHeight, false);
@@ -1565,6 +1595,7 @@ const CHAPTERS = [
   const starMat = new THREE.PointsMaterial({ color: 0xfff0fa, size: 0.05, transparent: true, opacity: 0.85, depthWrite: false });
   const stars = new THREE.Points(starGeo, starMat);
   scene.add(stars);
+  _stageGroups.DNA.push(stars);
 
   const strandGeoA = new THREE.BufferGeometry();
   const strandGeoB = new THREE.BufferGeometry();
@@ -1577,6 +1608,7 @@ const CHAPTERS = [
   const strandA = new THREE.Points(strandGeoA, strandMatA);
   const strandB = new THREE.Points(strandGeoB, strandMatB);
   scene.add(strandA, strandB);
+  _stageGroups.DNA.push(strandA, strandB);
 
   const rungGeo = new THREE.BufferGeometry();
   const rungPos = new Float32Array(helixTotal * 2 * 3);
@@ -1584,6 +1616,7 @@ const CHAPTERS = [
   const rungMat = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.18 });
   const rungs = new THREE.LineSegments(rungGeo, rungMat);
   scene.add(rungs);
+  _stageGroups.DNA.push(rungs);
 
   const labelTextureCache = new Map();
   function makeDigitTexture(ch){
@@ -1634,6 +1667,7 @@ const CHAPTERS = [
 
   let t0 = performance.now();
   function animate3d(){
+    if (!_loaderRunning) return;
     const t = (performance.now() - t0) * 0.001;
     if (!loaded){
       const arrA = strandGeoA.attributes.position.array;
@@ -1683,6 +1717,891 @@ const CHAPTERS = [
     requestAnimationFrame(animate3d);
   }
   animate3d();
+
+  // ================================================================
+  // 程序员浪漫：Shader-Based 玫瑰/极光/心形脉冲特效
+  // 不只是 Mesh+PointsMaterial，而是 GLSL shader 程序化生成
+  // ================================================================
+
+  // ============== 花瓣几何（共享） ==============
+  function createPetalGeometry(angle, scale){
+    const g = new THREE.BufferGeometry();
+    const positions = [];
+    const indices = [];
+    const uvs = [];
+    const segs = 12;
+    for (let i = 0; i <= segs; i++){
+      const t = i / segs;
+      const x = (t - 0.5) * 1.0 * scale;
+      const y = Math.sin(t * Math.PI) * 0.6 * scale;
+      positions.push(x, y, 0);
+      uvs.push(t, t);
+    }
+    for (let i = 0; i < segs; i++){
+      indices.push(i, i + 1, segs + 1);
+    }
+    g.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    g.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+    g.setIndex(indices);
+    g.computeVertexNormals();
+    return g;
+  }
+
+  // ============== Fresnel 花瓣 shader（粉/紫渐变 + 心跳脉冲） ==============
+  const _shaderMaterials = [];  // 收集所有 shaderMat 用于 update uTime
+  function makePetalGlowMaterial(colorHex){
+    const mat = new THREE.ShaderMaterial({
+      uniforms: {
+        uTime: { value: 0 },
+        uColor: { value: new THREE.Color(colorHex) },
+        uPulse: { value: 1.0 }
+      },
+      vertexShader: /* glsl */`
+        varying vec3 vNormal;
+        varying vec3 vViewDir;
+        varying vec2 vUv;
+        void main(){
+          vUv = uv;
+          vec4 mv = modelViewMatrix * vec4(position, 1.0);
+          vNormal = normalize(normalMatrix * normal);
+          vViewDir = normalize(-mv.xyz);
+          gl_Position = projectionMatrix * mv;
+        }
+      `,
+      fragmentShader: /* glsl */`
+        uniform float uTime;
+        uniform vec3 uColor;
+        uniform float uPulse;
+        varying vec3 vNormal;
+        varying vec3 vViewDir;
+        varying vec2 vUv;
+        void main(){
+          float fres = 1.0 - max(dot(vNormal, vViewDir), 0.0);
+          fres = pow(fres, 1.6);
+          vec3 base = mix(uColor * 0.55, uColor * 1.5, vUv.y);
+          float pulse = 0.82 + 0.18 * sin(uTime * 1.4);
+          vec3 col = base * (0.4 + fres * 1.5) * pulse * uPulse;
+          // 中心高光
+          float centerBoost = smoothstep(0.7, 0.0, distance(vUv, vec2(0.5, 0.55)));
+          col += uColor * centerBoost * 0.6;
+          float alpha = (0.45 + fres * 0.5) * pulse;
+          gl_FragColor = vec4(col, alpha);
+        }
+      `,
+      side: THREE.DoubleSide,
+      transparent: true,
+      depthWrite: false
+    });
+    _shaderMaterials.push(mat);
+    return mat;
+  }
+
+  // ============== (1) 玫瑰曲线粒子云：Morph Shader ==============
+  // 用 uProgress 让粒子在 散开 → 玫瑰曲线 → 心形 之间 morph
+  // Fragment 用 gl_PointCoord 画 5 瓣花瓣 sprite
+  const roseParticleCount = 1500;
+  const rosePosScat = new Float32Array(roseParticleCount * 3);
+  const rosePosRose = new Float32Array(roseParticleCount * 3);
+  const rosePosHeart = new Float32Array(roseParticleCount * 3);
+  const roseRands = new Float32Array(roseParticleCount);
+  const roseSizes = new Float32Array(roseParticleCount);
+  for (let i = 0; i < roseParticleCount; i++){
+    const rnd = Math.random();
+    roseRands[i] = rnd;
+    roseSizes[i] = 0.55 + Math.random() * 1.8;
+
+    // Scattered：球壳
+    const sr = 5 + Math.random() * 8;
+    const sa = Math.random() * Math.PI * 2;
+    const sp = Math.acos(2 * Math.random() - 1);
+    rosePosScat[i*3]   = sr * Math.sin(sp) * Math.cos(sa);
+    rosePosScat[i*3+1] = sr * Math.sin(sp) * Math.sin(sa) * 0.55;
+    rosePosScat[i*3+2] = sr * Math.cos(sp) - 2;
+
+    // Rose curve：r = a + b*cos(k*θ)
+    const tt = (i / roseParticleCount) * Math.PI * 2 * 4 + rnd * 0.4;
+    const k = 5;
+    const rad = (1.0 + 0.6 * Math.cos(k * tt)) * (1.0 + rnd * 0.35);
+    rosePosRose[i*3]   = rad * Math.cos(tt) * 1.35;
+    rosePosRose[i*3+1] = rad * Math.sin(tt) * 1.35;
+    rosePosRose[i*3+2] = (rnd - 0.5) * 0.45;
+
+    // Heart
+    const ha = (i / roseParticleCount) * Math.PI * 2;
+    const hx = 16 * Math.pow(Math.sin(ha), 3);
+    const hy = 13 * Math.cos(ha) - 5 * Math.cos(2*ha) - 2 * Math.cos(3*ha) - Math.cos(4*ha);
+    const scale = 0.13 + rnd * 0.04;
+    rosePosHeart[i*3]   = hx * scale;
+    rosePosHeart[i*3+1] = hy * scale;
+    rosePosHeart[i*3+2] = (rnd - 0.5) * 0.35;
+  }
+  const roseCloudGeo = new THREE.BufferGeometry();
+  roseCloudGeo.setAttribute('position', new THREE.BufferAttribute(rosePosScat, 3));
+  roseCloudGeo.setAttribute('aRose', new THREE.BufferAttribute(rosePosRose, 3));
+  roseCloudGeo.setAttribute('aHeart', new THREE.BufferAttribute(rosePosHeart, 3));
+  roseCloudGeo.setAttribute('aRand', new THREE.BufferAttribute(roseRands, 1));
+  roseCloudGeo.setAttribute('aSize', new THREE.BufferAttribute(roseSizes, 1));
+
+  const roseCloudMat = new THREE.ShaderMaterial({
+    uniforms: {
+      uTime: { value: 0 },
+      uProgress: { value: 0 },  // 0..1: scattered→rose, 1..2: rose→heart
+      uPixelRatio: { value: dpr },
+      uMouse: { value: new THREE.Vector2(0, 0) },      // NDC [-1,1]
+      uMouseStrength: { value: 0 },                     // 0..1, 鼠标激活时 1
+      uMouseRadius: { value: 2.5 }
+    },
+    vertexShader: /* glsl */`
+      attribute vec3 aRose;
+      attribute vec3 aHeart;
+      attribute float aRand;
+      attribute float aSize;
+      uniform float uTime;
+      uniform float uProgress;
+      uniform float uPixelRatio;
+      uniform vec2 uMouse;
+      uniform float uMouseStrength;
+      uniform float uMouseRadius;
+      varying float vRand;
+      varying float vMorph;
+      varying float vMouseProx;
+
+      void main(){
+        vec3 pos;
+        if (uProgress < 1.0){
+          pos = mix(position, aRose, smoothstep(0.0, 1.0, uProgress));
+        } else {
+          pos = mix(aRose, aHeart, smoothstep(0.0, 1.0, uProgress - 1.0));
+        }
+        // 有机扰动
+        float t = uTime * 0.5;
+        pos.x += sin(t + aRand * 6.283) * 0.05;
+        pos.y += cos(t * 1.1 + aRand * 6.283) * 0.06;
+        pos.z += sin(t * 0.7 + aRand * 6.283) * 0.03;
+
+        // 鼠标引力场：靠近鼠标的粒子被推开（3D 旋转时鼠标在 XY 平面）
+        if (uMouseStrength > 0.01){
+          vec2 m3 = vec3(uMouse * 5.0, 0.0).xy;  // 鼠标世界坐标
+          vec2 toM = pos.xy - m3;
+          float dM = length(toM);
+          if (dM < uMouseRadius){
+            float falloff = uMouseStrength * (1.0 - dM / uMouseRadius);
+            // 排斥方向
+            vec2 dir = normalize(toM + vec2(0.0001));
+            pos.xy += dir * falloff * falloff * 0.5;
+          }
+          vMouseProx = 1.0 - smoothstep(0.0, uMouseRadius, dM);
+        } else {
+          vMouseProx = 0.0;
+        }
+
+        vec4 mv = modelViewMatrix * vec4(pos, 1.0);
+        gl_Position = projectionMatrix * mv;
+        float dist = -mv.z;
+        gl_PointSize = aSize * 38.0 * uPixelRatio / dist
+          * (1.0 + 0.2 * sin(uTime * 2.0 + aRand * 6.283))
+          * (1.0 + vMouseProx * 0.4);  // 鼠标附近粒子变大
+        vRand = aRand;
+        vMorph = uProgress;
+      }
+    `,
+    fragmentShader: /* glsl */`
+      varying float vRand;
+      varying float vMorph;
+      varying float vMouseProx;
+      void main(){
+        vec2 p = gl_PointCoord - 0.5;
+        float r = length(p);
+        if (r > 0.5) discard;
+
+        // 5 瓣花瓣 alpha mask（用极坐标角度）
+        float a = atan(p.y, p.x);
+        float petal = 0.5 + 0.5 * cos(5.0 * a + vRand * 3.14);
+        // 中心柔光
+        float core = smoothstep(0.5, 0.0, r);
+        // 花瓣形状 = 软五瓣
+        float shape = smoothstep(0.55, 0.18, r) * mix(0.35, 1.0, petal);
+        float alpha = shape * 0.85 + core * 0.35;
+
+        // 颜色：粉→紫 (散开到玫瑰时) / 粉→金 (玫瑰到心形时)
+        vec3 pink = vec3(1.0, 0.55, 0.7);
+        vec3 purple = vec3(0.7, 0.55, 1.0);
+        vec3 gold = vec3(1.0, 0.85, 0.55);
+        vec3 col = (vMorph < 1.0)
+          ? mix(pink, purple, vRand)
+          : mix(pink, gold, vRand);
+
+        // 鼠标附近的粒子更亮
+        col += vec3(1.0, 0.85, 0.95) * vMouseProx * 0.6;
+        alpha += vMouseProx * 0.4;
+
+        gl_FragColor = vec4(col * alpha, alpha);
+      }
+    `,
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending
+  });
+  _shaderMaterials.push(roseCloudMat);
+  const roseCloudParticles = new THREE.Points(roseCloudGeo, roseCloudMat);
+  scene.add(roseCloudParticles);
+  _stageGroups.ROSE_CLOUD.push(roseCloudParticles);
+
+  // ============== (2) 玫瑰绽放：BLOOM stage ==============
+  // 程序化玫瑰 + Fresnel 花瓣 shader + 金色花蕊
+  const roseGroup = new THREE.Group();
+  const petalLayers = 4;
+  const petalsPerLayer = 7;
+  for (let layer = 0; layer < petalLayers; layer++){
+    const layerR = 0.15 + layer * 0.18;
+    const layerTilt = (layer - petalLayers / 2) * 0.35;
+    const colorHex = new THREE.Color().setHSL(0.95 - layer * 0.02, 0.7, 0.55 - layer * 0.05).getHex();
+    const petalMat = makePetalGlowMaterial(colorHex);
+    for (let p = 0; p < petalsPerLayer; p++){
+      const a = (p / petalsPerLayer) * Math.PI * 2 + layer * 0.4;
+      const g = createPetalGeometry(0, 1 + layer * 0.15);
+      const petal = new THREE.Mesh(g, petalMat);
+      petal.position.set(Math.cos(a) * layerR, layerTilt, Math.sin(a) * layerR);
+      petal.rotation.z = a + Math.PI / 2;
+      petal.rotation.x = layerTilt * 0.5;
+      roseGroup.add(petal);
+    }
+  }
+  // 花蕊（金色 Fresnel 球）
+  const stamenMat = new THREE.ShaderMaterial({
+    uniforms: {
+      uTime: { value: 0 },
+      uColor: { value: new THREE.Color(0xffd770) }
+    },
+    vertexShader: /* glsl */`
+      varying vec3 vNormal;
+      varying vec3 vViewDir;
+      void main(){
+        vec4 mv = modelViewMatrix * vec4(position, 1.0);
+        vNormal = normalize(normalMatrix * normal);
+        vViewDir = normalize(-mv.xyz);
+        gl_Position = projectionMatrix * mv;
+      }
+    `,
+    fragmentShader: /* glsl */`
+      uniform float uTime;
+      uniform vec3 uColor;
+      varying vec3 vNormal;
+      varying vec3 vViewDir;
+      void main(){
+        float fres = 1.0 - max(dot(vNormal, vViewDir), 0.0);
+        fres = pow(fres, 2.5);
+        float pulse = 0.7 + 0.3 * sin(uTime * 2.0);
+        vec3 col = uColor * (0.3 + fres * 1.9) * pulse;
+        gl_FragColor = vec4(col, 1.0);
+      }
+    `
+  });
+  _shaderMaterials.push(stamenMat);
+  const stamen = new THREE.Mesh(new THREE.SphereGeometry(0.15, 16, 16), stamenMat);
+  roseGroup.add(stamen);
+  roseGroup.position.set(0, -3.2, 0);
+  roseGroup.scale.setScalar(0.9);
+  scene.add(roseGroup);
+  _stageGroups.BLOOM.push(roseGroup);
+
+  // ============== (3) 飘落玫瑰花瓣（PETAL_RAIN，Fresnel 材质） ==============
+  const fallingPetals = [];
+  const petalGeo = new THREE.PlaneGeometry(0.3, 0.18);
+  for (let i = 0; i < 60; i++){
+    const colorHex = new THREE.Color().setHSL(0.94 + Math.random()*0.04, 0.7, 0.55 + Math.random()*0.15).getHex();
+    const m = makePetalGlowMaterial(colorHex);
+    const p = new THREE.Mesh(petalGeo, m);
+    p.position.set(
+      (Math.random() - 0.5) * 10,
+      Math.random() * 8 - 2,
+      (Math.random() - 0.5) * 6
+    );
+    p.userData = {
+      vy: -0.005 - Math.random() * 0.01,
+      vx: (Math.random() - 0.5) * 0.005,
+      rotSpd: (Math.random() - 0.5) * 0.04,
+      phase: Math.random() * Math.PI * 2
+    };
+    scene.add(p);
+    _stageGroups.PETAL_RAIN.push(p);
+    fallingPetals.push(p);
+  }
+
+  // 玫瑰光环（保留）
+  const ringGeo = new THREE.TorusGeometry(4.5, 0.04, 8, 64);
+  const ringMat = new THREE.MeshBasicMaterial({ color: 0xffd0a0, transparent: true, opacity: 0.6 });
+  const ring = new THREE.Mesh(ringGeo, ringMat);
+  ring.rotation.x = Math.PI / 2;
+  scene.add(ring);
+  _stageGroups.PETAL_RAIN.push(ring);
+
+  // ============== (4) 极光背景（独立场景渲染，恒在所有 stage 后方） ==============
+  const auroraScene = new THREE.Scene();
+  const auroraCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+  const auroraMat = new THREE.ShaderMaterial({
+    uniforms: {
+      uTime: { value: 0 },
+      uResolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) },
+      uIntensity: { value: 0.6 }
+    },
+    vertexShader: /* glsl */`
+      varying vec2 vUv;
+      void main(){
+        vUv = uv;
+        gl_Position = vec4(position.xy, 0.0, 1.0);
+      }
+    `,
+    fragmentShader: /* glsl */`
+      uniform float uTime;
+      uniform vec2 uResolution;
+      uniform float uIntensity;
+      varying vec2 vUv;
+
+      float hash(vec2 p){
+        return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+      }
+      float vnoise(vec2 p){
+        vec2 i = floor(p), f = fract(p);
+        vec2 u = f * f * (3.0 - 2.0 * f);
+        return mix(mix(hash(i), hash(i + vec2(1.0,0.0)), u.x),
+                   mix(hash(i + vec2(0.0,1.0)), hash(i + vec2(1.0,1.0)), u.x), u.y);
+      }
+      float fbm(vec2 p){
+        float v = 0.0, a = 0.5;
+        for (int i = 0; i < 5; i++){
+          v += a * vnoise(p);
+          p *= 2.0;
+          a *= 0.5;
+        }
+        return v;
+      }
+
+      void main(){
+        vec2 uv = vUv;
+        float aspect = uResolution.x / max(uResolution.y, 1.0);
+        vec2 p = vec2(uv.x * aspect, uv.y);
+        float t = uTime * 0.06;
+
+        // ============== 玫瑰曲线花田 (Rhodonea Garden) ==============
+        // 多条 r = a*cos(k*θ) 玫瑰曲线层叠旋转
+        vec2 pC = vec2(uv.x - 0.5, uv.y - 0.5);
+        pC.x *= aspect;
+        float rC = length(pC);
+        float thetaC = atan(pC.y, pC.x);
+        float tC = uTime;
+
+        vec3 col = vec3(0.0);
+
+        // k=3 浅粉
+        float r3rose = (0.55 + 0.06 * sin(tC * 0.4)) * cos(3.0 * (thetaC + tC * 0.08));
+        col += vec3(1.0, 0.7, 0.82) * exp(-abs(rC - r3rose) * 30.0) * 0.65;
+
+        // k=4 紫
+        float r4rose = (0.48 + 0.05 * cos(tC * 0.5)) * cos(4.0 * (thetaC - tC * 0.06));
+        col += vec3(0.78, 0.65, 1.0) * exp(-abs(rC - r4rose) * 32.0) * 0.6;
+
+        // k=5 玫瑰红（主色）
+        float r5rose = (0.6 + 0.07 * sin(tC * 0.3 + 1.0)) * cos(5.0 * (thetaC + tC * 0.05 + 0.5));
+        col += vec3(1.0, 0.45, 0.65) * exp(-abs(rC - r5rose) * 28.0) * 0.7;
+
+        // k=6 金
+        float r6rose = (0.42 + 0.05 * cos(tC * 0.45 + 2.0)) * cos(6.0 * (thetaC - tC * 0.07 + 1.2));
+        col += vec3(1.0, 0.85, 0.55) * exp(-abs(rC - r6rose) * 34.0) * 0.55;
+
+        // k=7 极浅粉（几乎透明）
+        float r7rose = (0.36 + 0.04 * sin(tC * 0.6 + 3.0)) * cos(7.0 * (thetaC + tC * 0.04 + 2.0));
+        col += vec3(1.0, 0.92, 0.95) * exp(-abs(rC - r7rose) * 38.0) * 0.45;
+
+        // 中心柔光（花蕊感）
+        col += vec3(1.0, 0.6, 0.78) * exp(-rC * 6.0) * 0.3;
+
+        // 闪烁星点
+        vec2 grid = floor(uv * 250.0);
+        float starHash = hash(grid);
+        float star = pow(starHash, 50.0)
+          * (0.4 + 0.6 * sin(uTime * 2.0 + starHash * 6.28));
+        col += vec3(1.0, 0.95, 0.98) * star * 0.55;
+
+        // 顶部稍暗（让 hex 字符更可读）
+        float top = 1.0 - smoothstep(0.0, 0.5, uv.y);
+        col *= mix(0.5, 1.0, top);
+
+        col *= uIntensity;
+        gl_FragColor = vec4(col, 1.0);
+      }
+    `,
+    depthTest: false,
+    depthWrite: false
+  });
+  _shaderMaterials.push(auroraMat);
+  const auroraMesh = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), auroraMat);
+  auroraScene.add(auroraMesh);
+
+  // ============== (5) 心形脉冲波（独立场景，ALL stage 中央特效） ==============
+  const heartPulseScene = new THREE.Scene();
+  const heartPulseCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+  const heartPulseMat = new THREE.ShaderMaterial({
+    uniforms: {
+      uTime: { value: 0 },
+      uActive: { value: 0 },
+      uResolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) }
+    },
+    vertexShader: /* glsl */`
+      varying vec2 vUv;
+      void main(){
+        vUv = uv;
+        gl_Position = vec4(position.xy, 0.0, 1.0);
+      }
+    `,
+    fragmentShader: /* glsl */`
+      uniform float uTime;
+      uniform float uActive;
+      uniform vec2 uResolution;
+      varying vec2 vUv;
+
+      // ============== 玫瑰曲线描绘动画 (Rose Curve Drawing) ==============
+      // 屏幕被划分为网格，每格独立绘制不同 k 值的玫瑰曲线
+      // 绘制过程：从 0 → 1 渐进显示（像被手绘出来）
+      // 显示一段时间后整体淡出，重新开始
+      float hash11(float p){
+        return fract(sin(p * 127.1) * 43758.5453);
+      }
+      vec3 hsv2rgb(vec3 c){
+        vec4 K = vec4(1.0, 2.0/3.0, 1.0/3.0, 3.0);
+        vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
+        return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
+      }
+      void main(){
+        vec2 p = vUv - 0.5;
+        p.x *= uResolution.x / max(uResolution.y, 1.0);
+        float r = length(p);
+        float theta = atan(p.y, p.x);
+        float t = uTime;
+
+        vec3 col = vec3(0.0);
+        float alpha = 0.0;
+
+        // 4x4 网格的玫瑰曲线
+        for (int gx = -2; gx <= 1; gx++){
+          for (int gy = -2; gy <= 1; gy++){
+            vec2 grid = vec2(float(gx), float(gy)) * 0.55;
+            vec2 lp = p - grid;
+            float lr = length(lp);
+            float ltheta = atan(lp.y, lp.x);
+
+            // 每格一个 k 值（基于网格 hash）
+            float kf = 3.0 + mod(abs(float(gx) * 7.0 + float(gy) * 13.0), 5.0);
+            // 颜色（基于 k 值）
+            vec3 curveCol = hsv2rgb(vec3(0.88 + kf * 0.02, 0.65, 1.0));
+
+            // 绘制进度（每格有时间偏移，循环）
+            float cellDelay = (float(gx + 2) * 4.0 + float(gy + 2)) * 0.18;
+            float cycle = 4.0;  // 4 秒一个循环
+            float phase = mod(t + cellDelay, cycle);
+            float drawP = 0.0;
+            if (phase < 2.0){
+              // 绘制阶段：从 0 到 1
+              drawP = phase / 2.0;
+            } else if (phase < 3.0){
+              // 保持阶段
+              drawP = 1.0;
+            } else {
+              // 淡出阶段
+              drawP = 1.0 - (phase - 3.0);
+            }
+            drawP = clamp(drawP, 0.0, 1.0);
+
+            // 计算当前绘制到的 θ（顺时针）
+            float maxTheta = (drawP * 2.0 - 1.0) * 3.14159;  // -π to π
+            // 当前 θ 是否已经被绘制
+            float thetaDiff = abs(ltheta - maxTheta);
+            float drawn = step(thetaDiff, 0.05);  // 已绘制区域
+            float drawing = step(abs(ltheta - maxTheta), 0.15)
+              * step(0.0, drawP) * step(drawP, 1.0);
+
+            // 玫瑰曲线距离场
+            float roseR = 0.18 * cos(kf * ltheta);
+            float d = abs(lr - roseR);
+            float line = exp(-d * 60.0);
+
+            // 只在已绘制区域显示
+            line *= drawn;
+            // 绘制笔尖（更亮）
+            float penTip = exp(-pow(lr, 2.0) * 800.0)
+              * step(abs(ltheta - maxTheta), 0.15)
+              * step(0.05, drawP) * step(drawP, 0.95);
+            line += penTip * 1.5;
+
+            col += curveCol * line;
+            alpha += line * 0.85;
+          }
+        }
+
+        col *= uActive;
+        alpha *= uActive;
+        gl_FragColor = vec4(col, alpha);
+      }
+    `,
+    transparent: true,
+    depthTest: false,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending
+  });
+  _shaderMaterials.push(heartPulseMat);
+  const heartPulseMesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), heartPulseMat);
+  heartPulseScene.add(heartPulseMesh);
+
+  // ============== (6) 点击/触摸涟漪（独立全屏场景） ==============
+  const clickRingScene = new THREE.Scene();
+  const clickRingCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+  // 单 ring 方案：每次点击都覆盖（最近一次涟漪 + 余波）
+  const clickRingMat = new THREE.ShaderMaterial({
+    uniforms: {
+      uTime: { value: 0 },
+      uResolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) },
+      uRings: { value: Array(8).fill(0).map(() => new THREE.Vector3(0, 0, -10)) }
+    },
+    vertexShader: /* glsl */`
+      varying vec2 vUv;
+      void main(){
+        vUv = uv;
+        gl_Position = vec4(position.xy, 0.0, 1.0);
+      }
+    `,
+    fragmentShader: /* glsl */`
+      uniform float uTime;
+      uniform vec2 uResolution;
+      uniform vec3 uRings[8];  // x, y, t0
+      varying vec2 vUv;
+
+      vec3 hsv2rgb(vec3 c){
+        vec4 K = vec4(1.0, 2.0/3.0, 1.0/3.0, 3.0);
+        vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
+        return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
+      }
+
+      void main(){
+        vec2 p = vUv - 0.5;
+        p.x *= uResolution.x / max(uResolution.y, 1.0);
+        vec3 col = vec3(0.0);
+        float alpha = 0.0;
+
+        // 最多 8 个 ring
+        for (int i = 0; i < 8; i++){
+          vec3 ring = uRings[i];
+          if (ring.z < 0.0) continue;
+          vec2 cpos = ring.xy - 0.5;
+          cpos.x *= uResolution.x / max(uResolution.y, 1.0);
+          float age = uTime - ring.z;
+          if (age < 0.0 || age > 2.2) continue;
+          float radius = age * 0.6;
+          float d = length(p - cpos);
+          float main = exp(-pow((d - radius) * 20.0, 2.0)) * (1.0 - age / 2.2);
+          float inner = exp(-pow((d - radius * 0.65) * 25.0, 2.0)) * (1.0 - age / 2.2) * 0.7;
+          // hue from y component (we'll use a fixed palette)
+          float hue = 0.88 + float(i) * 0.04;
+          vec3 c = hsv2rgb(vec3(hue, 0.75, 1.0));
+          col += c * (main + inner) * 2.5;
+          alpha += (main + inner) * 1.2;
+        }
+        gl_FragColor = vec4(col, alpha);
+      }
+    `,
+    transparent: true,
+    depthTest: false,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending
+  });
+  _shaderMaterials.push(clickRingMat);
+  const clickRingMesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), clickRingMat);
+  clickRingScene.add(clickRingMesh);
+
+  // ============== 交互：鼠标位置 / 点击 / 触摸 ==============
+  const _interactState = {
+    mouseNDC: new THREE.Vector2(0, 0),     // NDC: [-1, 1]
+    mouseActive: 0,                          // 0..1, 鼠标移动时增强
+    touchActive: 0,                          // 触摸中
+    lastMouseMove: 0,
+    rings: [],                               // 队列
+    maxRings: 8,
+    ringHueIdx: 0
+  };
+
+  function spawnRing(x, y){
+    // x, y 是 normalized [0,1]
+    const t0 = performance.now() * 0.001;
+    _interactState.rings.push({ x, y, t0, hue: _interactState.ringHueIdx++ });
+    if (_interactState.rings.length > _interactState.maxRings){
+      _interactState.rings.shift();
+    }
+    window.__ringCount = _interactState.rings.length;
+    window.__lastRing = { x, y, t0 };
+  }
+
+  // 鼠标移动（桌面端）
+  if (isDesktop){
+    window.addEventListener('mousemove', (e) => {
+      const nx = (e.clientX / window.innerWidth) * 2 - 1;
+      const ny = -((e.clientY / window.innerHeight) * 2 - 1);
+      _interactState.mouseNDC.set(nx, ny);
+      _interactState.lastMouseMove = performance.now();
+    }, { passive: true });
+
+    // 鼠标在 loader 上点击 → 涟漪（监听 document 避免子元素拦截）
+    document.addEventListener('click', (e) => {
+      const loader = document.getElementById('loader');
+      if (!loader || !loader.classList.contains('show')) return;
+      const rect = loader.getBoundingClientRect();
+      const x = (e.clientX - rect.left) / rect.width;
+      const y = (e.clientY - rect.top) / rect.height;
+      window.__clickFired = (window.__clickFired || 0) + 1;
+      spawnRing(x, y);
+    });
+  }
+
+  // 触摸（移动端）
+  if (!isDesktop){
+    let _touchStartTime = 0;
+    const _touchStart = new THREE.Vector2();
+    document.getElementById('loader')?.addEventListener('touchstart', (e) => {
+      const t = e.touches[0];
+      _touchStartTime = performance.now();
+      const rect = e.currentTarget.getBoundingClientRect();
+      _touchStart.set(
+        (t.clientX - rect.left) / rect.width,
+        (t.clientY - rect.top) / rect.height
+      );
+      spawnRing(_touchStart.x, _touchStart.y);
+    }, { passive: true });
+    document.getElementById('loader')?.addEventListener('touchmove', (e) => {
+      const t = e.touches[0];
+      const rect = e.currentTarget.getBoundingClientRect();
+      const x = (t.clientX - rect.left) / rect.width;
+      const y = (t.clientY - rect.top) / rect.height;
+      spawnRing(x, y);
+    }, { passive: true });
+  }
+
+  // 桌面端：拖动旋转 roseCloudParticles（可选 bonus）
+  let _isDragging = false;
+  let _lastDragX = 0;
+  if (isDesktop){
+    document.getElementById('loader')?.addEventListener('mousedown', (e) => {
+      _isDragging = true;
+      _lastDragX = e.clientX;
+    });
+    window.addEventListener('mouseup', () => { _isDragging = false; });
+    window.addEventListener('mousemove', (e) => {
+      if (!_isDragging) return;
+      const dx = e.clientX - _lastDragX;
+      _lastDragX = e.clientX;
+      roseCloudParticles.rotation.y += dx * 0.005;
+      roseGroup.rotation.y += dx * 0.005;
+    }, { passive: true });
+  }
+
+  // ============== 动画驱动：所有 shader uniforms + 几何变换 ==============
+  const roseAnimClock = new THREE.Clock();
+  let _morphProgress = 0;  // 0..2 在 stage 切换时插值
+  let _morphTarget = 0;
+  let _lastStage = -1;
+
+  function updateShaderTime(time){
+    // 更新所有 shader uniform uTime
+    for (const m of _shaderMaterials){
+      if (m.uniforms.uTime) m.uniforms.uTime.value = time;
+    }
+    // 玫瑰粒子 morph：根据 stage 切换目标值
+    //   ROSE_CLOUD = 0.5（半程）
+    //   BLOOM = 1.2（接近心形）
+    //   PETAL_RAIN = 1.8
+    //   ALL = 2.0（完全心形）
+    let target = 0.0;
+    if (_stageIdx === 1) target = 0.6;
+    else if (_stageIdx === 2) target = 1.2;
+    else if (_stageIdx === 3) target = 1.7;
+    else if (_stageIdx === 4) target = 2.0;
+    _morphProgress += (target - _morphProgress) * 0.04;
+    roseCloudMat.uniforms.uProgress.value = _morphProgress;
+
+    // 心形脉冲强度
+    let heartActive = 0;
+    if (_stageIdx === 2 || _stageIdx === 3 || _stageIdx === 4) heartActive = 1.0;
+    else heartActive = 0;
+    // 平滑插值
+    const cur = heartPulseMat.uniforms.uActive.value;
+    heartPulseMat.uniforms.uActive.value = cur + (heartActive - cur) * 0.05;
+  }
+
+  function animateRose(t){
+    const ts = t * 0.001;
+    updateShaderTime(ts);
+
+    // 玫瑰粒子云：旋转 + 呼吸
+    roseCloudParticles.rotation.z = ts * 0.18;
+    const breath = 1 + Math.sin(ts * 0.6) * 0.06;
+    roseCloudParticles.scale.setScalar(breath);
+
+    // 玫瑰几何：缓慢上下浮动 + 旋转
+    roseGroup.rotation.y = ts * 0.25;
+    roseGroup.rotation.z = Math.sin(ts * 0.4) * 0.15;
+    roseGroup.position.y = -3.2 + Math.sin(ts * 0.7) * 0.3;
+
+    // 玫瑰花瓣下落
+    for (const p of fallingPetals){
+      p.position.y += p.userData.vy;
+      p.position.x += p.userData.vx + Math.sin(ts + p.userData.phase) * 0.003;
+      p.rotation.z += p.userData.rotSpd;
+      p.rotation.x = Math.sin(ts * 0.8 + p.userData.phase) * 0.4;
+      if (p.position.y < -5){
+        p.position.y = 6;
+        p.position.x = (Math.random() - 0.5) * 10;
+      }
+    }
+    // 玫瑰光环
+    ring.rotation.z = ts * 0.15;
+    ring.material.opacity = 0.4 + Math.sin(ts * 1.2) * 0.2;
+
+    // ========== 交互：鼠标/触摸 uniform 更新 ==========
+    // 鼠标强度（移动时增强，停顿时衰减）
+    const sinceMove = (performance.now() - _interactState.lastMouseMove) * 0.001;
+    const mouseTarget = sinceMove < 1.5 ? 1.0 : 0.0;
+    _interactState.mouseActive += (mouseTarget - _interactState.mouseActive) * 0.08;
+    roseCloudMat.uniforms.uMouse.value.copy(_interactState.mouseNDC);
+    roseCloudMat.uniforms.uMouseStrength.value = _interactState.mouseActive;
+
+    // Click ring 队列 → 上传到 uniform（每帧重置）
+    const ringUniforms = clickRingMat.uniforms.uRings.value;
+    // 清空
+    for (let i = 0; i < 8; i++){
+      ringUniforms[i].x = 0;
+      ringUniforms[i].y = 0;
+      ringUniforms[i].z = -10;
+    }
+    const now = performance.now() * 0.001;
+    // 清理过期 ring
+    _interactState.rings = _interactState.rings.filter(r => (now - r.t0) < 2.2);
+    const count = Math.min(_interactState.rings.length, 8);
+    for (let i = 0; i < count; i++){
+      const r = _interactState.rings[i];
+      ringUniforms[i].set(r.x, r.y, r.t0);
+    }
+  }
+
+  function roseLoop(){
+    if (!_loaderRunning) return;
+    const t = performance.now();
+    animateRose(t);
+    requestAnimationFrame(roseLoop);
+  }
+  roseLoop();
+
+  // ============== 修改主渲染循环：先画极光背景，再画主场景，再画心形脉冲 ==============
+  const _origAnimate3d = animate3d;
+  // 改写：先 render auroraScene，再 render main scene，再 render heartPulseScene
+  function rendererTick(){
+    if (!_loaderRunning) return;
+    renderer.autoClear = true;
+    renderer.render(auroraScene, auroraCam);
+    renderer.autoClear = false;
+    renderer.clearDepth();
+    // 调用原 animate3d 内部的 render，但跳过它的 render 调用，改为手动 render 主场景
+    // 简化：直接由原 animate3d 调用 render(scene, camera)，aurora 单独调用
+    renderer.render(scene, camera);
+    renderer.render(heartPulseScene, heartPulseCam);
+    requestAnimationFrame(rendererTick);
+  }
+  // 不直接覆写 animate3d；改成单独的渲染调度：
+  // 让原 animate3d 不调 render，改由 rendererTick 调用
+  // 但要保持 stars/strand 动画持续 → 不覆写 animate3d 逻辑
+  // 解决：让 aurora 心形 在 animate3d 内的 render 之后再画
+  // 由于 animate3d 内部 requestAnimationFrame(animate3d)，我们挂一个独立 rAF
+  function overlayRender(){
+    if (!_loaderRunning) return;
+    renderer.autoClear = false;
+    renderer.clearDepth();
+    renderer.render(heartPulseScene, heartPulseCam);
+    requestAnimationFrame(overlayRender);
+  }
+  // aurora 用 autoClear=false 让原 render 不清屏，改为 aurora 先画
+  // 最简方案：覆写 renderer.render 让它先画 aurora
+  const _realRender = renderer.render.bind(renderer);
+  renderer.render = function(s, c){
+    if (s === scene){
+      // 主场景渲染：先 aurora (清屏)，再 main，再 clickRing (叠加)
+      renderer.autoClear = true;
+      _realRender(auroraScene, auroraCam);
+      renderer.autoClear = false;
+      renderer.clearDepth();
+      _realRender(scene, c);
+      renderer.clearDepth();
+      _realRender(clickRingScene, clickRingCam);
+    } else {
+      _realRender(s, c);
+    }
+  };
+  overlayRender();
+
+  // ========== 多阶段轮换控制器 ==========
+  // 每个阶段显示一组 3D 对象，到时间切下一个，最后一阶段是绽放
+  const stageOrder = ['DNA', 'ROSE_CLOUD', 'BLOOM', 'PETAL_RAIN', 'ALL'];
+  const STAGE_LABELS = [
+    '生命的双螺旋...',
+    '漫天飞舞的玫瑰',
+    '为你绽放的花',
+    '回忆如花瓣飘落',
+    '把这些都打包给你'
+  ];
+  const STAGE_DURATION = 1600;  // 每阶段 1.6 秒，5 阶段共 8 秒
+  let _stageStart = performance.now();
+  // 当进入阶段 2 后，hex 文案由 phase2Quotes 管理，不被 setStage 覆盖
+  let _phase2Started = false;
+  window.__markPhase2 = () => { _phase2Started = true; };
+  function setStage(idx){
+    _stageIdx = idx;
+    for (const k of stageOrder){
+      const visible = (k === stageOrder[idx]) || (stageOrder[idx] === 'ALL');
+      for (const o of _stageGroups[k]) o.visible = visible;
+    }
+    // 切标题（阶段 2 期间不覆盖 phase2 的文案）
+    if (!_phase2Started){
+      const lhx = document.querySelector('.loader-hex-text');
+      if (lhx) lhx.textContent = STAGE_LABELS[idx] || STAGE_LABELS[0];
+    }
+  }
+  setStage(0);
+
+  function stageTick(){
+    if (!_loaderRunning) return;
+    const elapsed = performance.now() - _stageStart;
+    let target = Math.floor(elapsed / STAGE_DURATION);
+    if (target >= stageOrder.length) target = stageOrder.length - 1;
+    if (target !== _stageIdx) setStage(target);
+    requestAnimationFrame(stageTick);
+  }
+  stageTick();
+
+  // 提供对外接口：进入相册后停止所有 loader 3D 特效，释放 GPU
+  window.__destroyLoaderThree = () => {
+    _loaderRunning = false;
+    try { renderer.dispose(); } catch(e){}
+    const disposeScene = (s) => {
+      if (!s) return;
+      s.traverse(obj => {
+        if (obj.geometry) obj.geometry.dispose && obj.geometry.dispose();
+        if (obj.material) {
+          if (Array.isArray(obj.material)) obj.material.forEach(m => m.dispose && m.dispose());
+          else obj.material.dispose && obj.material.dispose();
+        }
+      });
+    };
+    disposeScene(scene);
+    disposeScene(auroraScene);
+    disposeScene(heartPulseScene);
+    // 移除 canvas
+    if (tdc && tdc.parentNode) tdc.parentNode.removeChild(tdc);
+  };
   } // end if (isDesktop)
 
   // ---------- 移动端专属：浪漫主题（樱花瓣 + 玫瑰 + 心形星座 + 柔光晕） ----------
@@ -2386,6 +3305,7 @@ async function buildSphereWall(photosData){
   const loaderTotal = document.getElementById('loaderTotal');
   const loaderThumbs = document.getElementById('loaderThumbs');
   loader.classList.add('show');
+  window.__loaderStartTime = performance.now();  // 用于计算最小 loader 时长
   loaderTotal.textContent = allItems.length;
 
   // 用 Fibonacci 球面分布一次性占完所有位置
@@ -2474,8 +3394,8 @@ async function buildSphereWall(photosData){
   // 移动端：触发中心玫瑰绽放
   if (window.__setMobileRose) window.__setMobileRose(1);
 
-  // ========== 阶段 2：渐进预加载后续章节图片 ==========
-  // 让 loader 保留可见，持续加载 ch01-ch09 的章节照片
+  // ========== 阶段 2：loader 内限时预加载前两章，其余进相册后后台加载 ==========
+  const MIN_LOADER_DURATION = 6500;
   if (typeof CHAPTERS !== 'undefined') {
     let photosByFolder = window.__photosByFolder;
     if (!photosByFolder){
@@ -2492,15 +3412,17 @@ async function buildSphereWall(photosData){
         photosByFolder = {};
       }
     }
-    const phase2Start = performance.now();
-    // 收集所有章节的全部原图 URL
+    // 收集前两章的全部原图 URL
     const chapterUrls = [];
+    const PRELOAD_CHAPTER_COUNT = 2;
+    let _preloadedChapters = 0;
     CHAPTERS.forEach(ch => {
-      if (ch.folder && !ch.isVideo && photosByFolder && photosByFolder[ch.folder]){
+      if (ch.folder && !ch.isVideo && photosByFolder && photosByFolder[ch.folder] && _preloadedChapters < PRELOAD_CHAPTER_COUNT){
         const arr = photosByFolder[ch.folder];
         if (Array.isArray(arr)){
           arr.forEach(p => chapterUrls.push(`${ch.folder}/${p}`));
         }
+        _preloadedChapters++;
       }
     });
 
@@ -2513,6 +3435,7 @@ async function buildSphereWall(photosData){
     const loaderPct = document.getElementById('loaderPct');
 
     if (loaderHexText) loaderHexText.textContent = '正 在 收 集 回 忆';
+    if (window.__markPhase2) window.__markPhase2();
     const phase2Quotes = [
       '把每一个值得纪念的瞬间打包……',
       '让相册提前翻到我们最相爱的那一页',
@@ -2528,9 +3451,12 @@ async function buildSphereWall(photosData){
     if (loaderTotal) loaderTotal.textContent = phase2Total;
     if (loaderPct) loaderPct.textContent = '0';
 
-    // 并发预加载（每批 4 张）
+    // 并发预加载（每批 6 张），但受 phase2Deadline 限制：
+    // 超时后剩余图片交给进相册后的后台任务，绝不拖慢进入 3D 球
+    const phase2Deadline = window.__loaderStartTime + MIN_LOADER_DURATION - 600;
     const batchSize = isDesktop ? 6 : 3;
     for (let i = 0; i < chapterUrls.length; i += batchSize){
+      if (performance.now() > phase2Deadline) break;
       const batch = chapterUrls.slice(i, i + batchSize);
       await Promise.all(batch.map(url => preloadImage(url).then(() => {
         phase2Loaded++;
@@ -2546,16 +3472,21 @@ async function buildSphereWall(photosData){
         }
       })));
     }
-
-    // 阶段 2 完成：再保留 600ms 让用户看到 100%
-    await new Promise(r => setTimeout(r, 600));
   }
 
-  // 显示 loader 还保留 1200ms 让用户看到心形绽放
-  await new Promise(r => setTimeout(r, 1500));
+  // 保证 loader 至少展示 MIN_LOADER_DURATION 毫秒（让用户能看到阶段轮换 + 交互）
+  const _elapsedSinceLoader = performance.now() - window.__loaderStartTime;
+  const _remainingWait = Math.max(0, MIN_LOADER_DURATION - _elapsedSinceLoader);
+  if (_remainingWait > 0){
+    await new Promise(r => setTimeout(r, _remainingWait));
+  }
 
   loader.classList.remove('show');
   setTimeout(() => loader.remove(), 500);
+
+  // 销毁加载页 3D 特效（DNA、玫瑰粒子云、玫瑰几何、花瓣雨、点击涟漪等），节省 GPU
+  // 必须在 loader 隐藏后调用，否则用户看不到加载期间的 3D 互动特效
+  if (window.__destroyLoaderThree) window.__destroyLoaderThree();
 
   // 整体显示球体（统一入场动画）
   const showStart = performance.now();
@@ -2563,6 +3494,24 @@ async function buildSphereWall(photosData){
     photoEnterStart.set(p.mesh, showStart + i * 12);  // 12ms 间隔，错落入场
   });
   photoGroup.visible = true;
+
+  // 进相册后：后台继续预加载所有章节原图
+  // 前两章在 loader 里已加载的直接命中缓存秒过，重点补齐后面的章节
+  if (typeof CHAPTERS !== 'undefined' && window.__photosByFolder){
+    const restUrls = [];
+    CHAPTERS.forEach(ch => {
+      if (ch.folder && !ch.isVideo && window.__photosByFolder[ch.folder]){
+        const arr = window.__photosByFolder[ch.folder];
+        if (Array.isArray(arr)) arr.forEach(p => restUrls.push(`${ch.folder}/${p}`));
+      }
+    });
+    (async () => {
+      const bs = isDesktop ? 6 : 3;
+      for (let i = 0; i < restUrls.length; i += bs){
+        await Promise.all(restUrls.slice(i, i + bs).map(u => preloadImage(u)));
+      }
+    })();
+  }
 }
 
 // 旋转控制（拖动 + 自动旋转 + 缩放）
