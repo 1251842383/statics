@@ -1725,6 +1725,16 @@ const CHAPTERS = [
     ],
     moon: [
       'https://threejs.org/examples/textures/planets/moon_1024.jpg'
+    ],
+    // 人造卫星实景图（Wikimedia 公共领域）
+    iss: [
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/0/04/International_Space_Station_after_undocking_of_STS-132.jpg/512px-International_Space_Station_after_undocking_of_STS-132.jpg'
+    ],
+    hubble: [
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/3/30/Hubble_01.jpg/512px-Hubble_01.jpg'
+    ],
+    tiangong: [
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/3/3a/Tiangong_space_station_line_drawing.png/512px-Tiangong_space_station_line_drawing.png'
     ]
     // 其他行星（水/金/火/木/土/天/海）：用程序化纹理，木星保留条带 shader，
     // 火星保留锈红程序化纹理。教学场景下地球+月亮高分辨率实景已足够震撼
@@ -1973,36 +1983,48 @@ const CHAPTERS = [
       moonOrbit.rotation.x = Math.PI / 2;
       m.add(moonOrbit);
 
-      // 人造卫星：3 颗不同轨道
+      // 人造卫星：3 颗不同轨道 + 真实图片 sprite（ISS / Hubble / 天宫）
       m.userData.satellites = [];
       const satCount = 3;
+      const satImageKeys = ['iss', 'hubble', 'tiangong'];
       for (let si = 0; si < satCount; si++){
-        // 卫星本体（小型长方体 + 太阳能板）
         const satGroup = new T.Group();
-        const bodyMat = new T.MeshBasicMaterial({ color: 0xd0d4d8 });
-        const body = new T.Mesh(new T.BoxGeometry(0.06, 0.06, 0.10), bodyMat);
-        satGroup.add(body);
-        // 太阳能板
-        const panelMat = new T.MeshBasicMaterial({ color: 0x1a3a6c });
-        const panelL = new T.Mesh(new T.BoxGeometry(0.18, 0.08, 0.01), panelMat);
-        panelL.position.set(0.14, 0, 0);
-        const panelR = new T.Mesh(new T.BoxGeometry(0.18, 0.08, 0.01), panelMat);
-        panelR.position.set(-0.14, 0, 0);
-        satGroup.add(panelL); satGroup.add(panelR);
-        // 天线
-        const antMat = new T.MeshBasicMaterial({ color: 0xff5050 });
-        const ant = new T.Mesh(new T.SphereGeometry(0.015, 6, 4), antMat);
-        ant.position.set(0, 0.05, 0);
-        satGroup.add(ant);
+
+        // 真实图片 sprite（异步加载，兜底为发光小球）
+        const fallbackSatMat = new T.MeshBasicMaterial({ color: 0x9ab8d8, transparent: true, opacity: 0.85 });
+        const fallbackSat = new T.Mesh(new T.SphereGeometry(0.08, 12, 8), fallbackSatMat);
+        satGroup.add(fallbackSat);
+        // 辉光
+        const glowGeo = new T.SphereGeometry(0.14, 12, 8);
+        const glowMat = new T.MeshBasicMaterial({ color: 0xffeac8, transparent: true, opacity: 0.18, depthWrite: false, blending: T.AdditiveBlending });
+        const glow = new T.Mesh(glowGeo, glowMat);
+        satGroup.add(glow);
 
         const satOrbitR = p.r * (1.5 + si * 0.15);
         const satAngle0 = Math.random() * Math.PI * 2;
-        const satTilt = (Math.random() - 0.5) * 0.6;  // 不同倾角
+        const satTilt = (Math.random() - 0.5) * 0.6;
         const satSpeed = 0.02 + Math.random() * 0.02;
         satGroup.position.set(Math.cos(satAngle0) * satOrbitR, Math.sin(satAngle0 * 1.3) * p.r * 0.3, Math.sin(satAngle0) * satOrbitR);
-        satGroup.userData = { isSat: true, angle: satAngle0, orbitR: satOrbitR, tilt: satTilt, speed: satSpeed };
+        satGroup.userData = { isSat: true, angle: satAngle0, orbitR: satOrbitR, tilt: satTilt, speed: satSpeed, fallbackSat, glow, spriteMesh: null, imageKey: satImageKeys[si] };
         m.add(satGroup);
         m.userData.satellites.push(satGroup);
+
+        // 异步加载真实卫星图，成功后替换为 Sprite（始终面向相机）
+        const imgKey = satImageKeys[si];
+        tryLoadTexture(TEX_URLS[imgKey], null).then(tex => {
+          if (!tex || !satGroup.parent) return;
+          tex.colorSpace = T.SRGBColorSpace;
+          tex.anisotropy = 4;
+          const satSprite = new T.Sprite(new T.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, depthTest: false }));
+          // 卫星 sprite 大小：约地球半径的 1/3，splash 拉近也能看清
+          const satScale = p.r * 0.85;
+          satSprite.scale.set(satScale, satScale, 1);
+          satGroup.add(satSprite);
+          satGroup.userData.spriteMesh = satSprite;
+          // 隐藏程序化兜底
+          if (fallbackSat) fallbackSat.visible = false;
+          if (glow) glow.material.opacity = 0.05;
+        });
 
         // 卫星轨道细线（虚线感：用半透明细环）
         const satOrbitGeo = new T.RingGeometry(satOrbitR - 0.008, satOrbitR + 0.008, 64, 1);
@@ -2294,8 +2316,9 @@ const CHAPTERS = [
   // 缩放：滚轮 + 双指
   c.addEventListener('wheel', e => {
     e.preventDefault();
-    // 缩放范围拉宽：最近 4（贴近地球）→ 最远 140（看整个太阳系）
-    targetDistance = Math.max(4, Math.min(140, targetDistance + e.deltaY * 0.04));
+    // 缩放范围拉宽：最近 0.6（贴近地球/行星表面）→ 最远 800（深银河，看远景星系）
+    // 灵敏度：每 deltaY=100 约改变 ~16 单位（原来 4），更跟手
+    targetDistance = Math.max(0.6, Math.min(800, targetDistance + e.deltaY * 0.16));
   }, { passive: false });
   let pinchD0 = 0, pinchTar0 = 0;
   // 双指 pinch 缩放（在 touchstart 触发时检测到 2 指则启用）
@@ -2320,7 +2343,7 @@ const CHAPTERS = [
       const dx = e.touches[0].clientX - e.touches[1].clientX;
       const dy = e.touches[0].clientY - e.touches[1].clientY;
       const d = Math.hypot(dx, dy);
-      targetDistance = Math.max(4, Math.min(140, pinchTar0 * (pinchD0 / d)));
+      targetDistance = Math.max(0.6, Math.min(800, pinchTar0 * (pinchD0 / d)));
       e.preventDefault();
     } else if (e.touches.length === 1 && _spTouchActive && pinchD0 === 0){
       onMove(e.touches[0].clientX, e.touches[0].clientY);
@@ -2359,9 +2382,9 @@ const CHAPTERS = [
     // 1) 相机目标切到该天体当前位置
     targetCameraTarget.x = hit.position.x;
     targetCameraTarget.z = hit.position.z;
-    // 2) 距离设为该天体半径 × 4（能看清但不全遮住），并限制在 4~140
+    // 2) 距离设为该天体半径 × 2.5（贴近但保留轮廓），并允许拉到 0.6（贴表面）
     const r = hit.userData?.r || 1;
-    targetDistance = Math.max(4, Math.min(140, r * 4));
+    targetDistance = Math.max(r * 1.1, Math.min(800, r * 2.5));
     // 3) 视场微调：拉近时 FOV 略微变窄，更接近"看清天体"
     targetFOV = 55;
   }
@@ -2412,7 +2435,7 @@ const CHAPTERS = [
     // 小行星带缓慢公转
     asteroids.rotation.y = t * 0.0025;
     // 自动相机推近：8 秒内 90→60
-    if (t < 8 && targetDistance > 60) targetDistance = 90 - (t/8)*30;
+    if (t < 10 && targetDistance > 60) targetDistance = 120 - (t/10)*100;
     // 平滑插值
     yaw += (targetYaw - yaw) * 0.08;
     pitch += (targetPitch - pitch) * 0.08;
