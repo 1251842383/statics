@@ -5837,13 +5837,6 @@ function renderWishScene(ch){
     <div class="viewer-slide wish">
       <canvas class="wish-3d"></canvas>
       <div class="wish-hearts">${hearts}</div>
-      <div class="cover-content" style="position:relative;z-index:3;pointer-events:none">
-        <h2 class="viewer-wish-title" data-decode>下一个十年</h2>
-        <p class="viewer-wish-text">愿我们继续牵着彼此的手，看更多的山海，走更远的路。</p>
-        <p class="viewer-wish-text">愿我们的小家永远充满笑声，愿柯柯健康快乐地长大。</p>
-        <p class="viewer-wish-text">愿十年后、二十年后、五十年后，你仍是我最想见的那个人。</p>
-        <div class="viewer-wish-sign">— Forever & Always ♥</div>
-      </div>
     </div>`;
 
   // ============ 程序员浪漫：标题"解码"效果 + 相爱天数计数 ============
@@ -6023,8 +6016,8 @@ function renderWishScene(ch){
   wishGroup.scale.setScalar(0.6);
   wishScene.add(wishGroup);
 
-  // ============ 文字贴心：把文案做成发光纹理，环绕心形轨道漂浮 ============
-  // 每句文案一个 sprite，沿心形外扩椭圆轨道公转，随心跳同步脉动
+  // ============ 文字围成心形：文案逐字沿心形曲线排布，贴附 3D 表面 ============
+  // 每个字一个 sprite，按弧长均匀分布在心形轮廓上，随心跳同步脉动
   function makeTextTexture(text, opts){
     const o = Object.assign({ font: 'serif', size: 64, color: '#ffe6ee', glow: '#ff8eb3' }, opts);
     const c = document.createElement('canvas');
@@ -6047,21 +6040,71 @@ function renderWishScene(ch){
   }
 
   const textSprites = [];
-  const textConfigs = [
-    { text: '下 一 个 十 年', size: 84, weight: '200', font: '"Noto Serif SC",serif', orbitR: 5.2, speed: 0.12, phase: 0, yAmp: 1.4, scale: 1.0 },
-    { text: '山海与路', size: 52, font: '"Noto Serif SC",serif', orbitR: 6.4, speed: -0.09, phase: 1.2, yAmp: 1.0, scale: 0.72 },
-    { text: '笑声与小家', size: 52, font: '"Noto Serif SC",serif', orbitR: 6.4, speed: -0.09, phase: 2.4, yAmp: 1.0, scale: 0.72 },
-    { text: '最想见的人', size: 52, font: '"Noto Serif SC",serif', orbitR: 6.4, speed: -0.09, phase: 3.6, yAmp: 1.0, scale: 0.72 },
-    { text: 'Forever ♥', size: 58, font: '"Dancing Script","Cormorant Garamond",serif', orbitR: 5.8, speed: 0.15, phase: 4.8, yAmp: 1.6, scale: 0.8 }
+  // 组装心形文字：三条同心心形环 —— 内环标题大字，中外环正文，逐字贴附轮廓
+  const wishTitle = '下一个十年';
+  const wishLines = [
+    '愿我们继续牵着彼此的手看更多的山海走更远的路',
+    '愿我们的小家永远充满笑声愿柯柯健康快乐地长大',
+    '愿十年后二十年后五十年后你仍是我最想见的那个人',
+    'Forever ♥'
   ];
-  textConfigs.forEach(cfg => {
-    const tex = makeTextTexture(cfg.text, { size: cfg.size, font: cfg.font, weight: cfg.weight });
-    const sm = new THREE.SpriteMaterial({ map: tex, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending });
-    const sp = new THREE.Sprite(sm);
-    sp.scale.set(cfg.scale * 3.4, cfg.scale * 3.4 * (tex.image.height / tex.image.width), 1);
-    sp.userData.cfg = cfg;
-    wishGroup.add(sp);
-    textSprites.push(sp);
+  // 心形曲线（与粒子 posHeart 同款），弧长参数化
+  function heartPoint(u){
+    const hx = 16 * Math.pow(Math.sin(u), 3);
+    const hy = 13 * Math.cos(u) - 5 * Math.cos(2*u) - 2 * Math.cos(3*u) - Math.cos(4*u);
+    return [hx, hy];
+  }
+  // 采样弧长表
+  const ARC_N = 400;
+  const arcLen = [0];
+  for (let i = 1; i <= ARC_N; i++){
+    const [x0, y0] = heartPoint(((i - 1) / ARC_N) * Math.PI * 2);
+    const [x1, y1] = heartPoint((i / ARC_N) * Math.PI * 2);
+    arcLen.push(arcLen[i-1] + Math.hypot(x1 - x0, y1 - y0));
+  }
+  const totalLen = arcLen[ARC_N];
+  function heartAtArc(s){
+    // s ∈ [0, totalLen) → 曲线坐标
+    let lo = 0, hi = ARC_N;
+    while (lo < hi){
+      const mid = (lo + hi) >> 1;
+      if (arcLen[mid] < s) lo = mid + 1; else hi = mid;
+    }
+    const i = Math.max(1, lo);
+    const t = (s - arcLen[i-1]) / Math.max(1e-6, arcLen[i] - arcLen[i-1]);
+    const u = ((i - 1 + t) / ARC_N) * Math.PI * 2;
+    return heartPoint(u);
+  }
+
+  // 三条文字环：内环标题（scale 0.135）+ 中环前两句（0.165）+ 外环后一句与落款（0.195）
+  // 粒子心形 scale 0.115，文字环整体包在外面，形成嵌套心
+  const TEXT_Z = 1.35;        // z 略前于粒子壳，避免被粒子吞没
+  const rings = [
+    { text: wishTitle,                 scale: 0.135, size: 96, weight: '300', color: '#fff0f5', glow: '#ff8eb3', charScale: 0.62 },
+    { text: wishLines[0] + wishLines[1], scale: 0.165, size: 56, weight: '200', color: '#ffd6e4', glow: '#ff6b9e', charScale: 0.30 },
+    { text: wishLines[2] + '  ' + wishLines[3], scale: 0.195, size: 56, weight: '200', color: '#ffd6e4', glow: '#ff6b9e', charScale: 0.32 }
+  ];
+  let charIdx = 0;
+  rings.forEach(ring => {
+    const chars = ring.text.split('');
+    chars.forEach((ch0, i) => {
+      if (ch0 === ' ') { charIdx++; return; }  // 空格占位不渲染
+      const s = (i / chars.length) * totalLen;
+      // 偏移 3/4 周长让分布起点在心形顶部凹陷处（视觉更对称）
+      const [hx, hy] = heartAtArc((s + totalLen * 0.75) % totalLen);
+      const tex = makeTextTexture(ch0, {
+        size: ring.size, font: '"Noto Serif SC",serif', weight: ring.weight,
+        color: ring.color, glow: ring.glow
+      });
+      const sm = new THREE.SpriteMaterial({ map: tex, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending });
+      const sp = new THREE.Sprite(sm);
+      const sc = ring.charScale;
+      sp.scale.set(sc, sc * (tex.image.height / tex.image.width), 1);
+      sp.userData = { hx: hx * ring.scale, hy: hy * ring.scale, phase: charIdx * 0.35, big: ring.size > 80 };
+      wishGroup.add(sp);
+      textSprites.push(sp);
+      charIdx++;
+    });
   });
 
   const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
@@ -6090,8 +6133,12 @@ function renderWishScene(ch){
     mouse.lastMove = performance.now();
   }
   // 拨动交互：按住拖动 → 心 + 文字整体跟随旋转，松手带惯性衰减
+  // 缩放交互：滚轮 / 双指 pinch → 相机推拉（可一路推进心形粒子深处）
+  // 快速上滑（flick）→ 相机俯冲进心形内部，慢慢漂回
   let dragging = false, lastX = 0, lastY = 0, velX = 0, velY = 0;
-  function dragStart(x, y){ dragging = true; lastX = x; lastY = y; velX = velY = 0; }
+  let camZ = 13, camZTarget = 13, diveVel = 0;   // 相机距离 + 深潜速度
+  let downX = 0, downY = 0, downT = 0;
+  function dragStart(x, y){ dragging = true; lastX = x; lastY = y; velX = velY = 0; downX = x; downY = y; downT = performance.now(); }
   function dragMove(x, y){
     if (!dragging) return;
     velY = (x - lastX) * 0.006;
@@ -6100,21 +6147,53 @@ function renderWishScene(ch){
     wishGroup.rotation.x += velX;
     lastX = x; lastY = y;
   }
-  function dragEnd(){ dragging = false; }
+  function dragEnd(x, y){
+    if (!dragging) return;
+    dragging = false;
+    // 快速上滑（<280ms 且位移 >60px）→ 触发深潜
+    const dt = performance.now() - downT;
+    const dy = (y ?? downY) - downY;
+    if (dt < 280 && dy < -60) diveVel = -0.55;   // 负 = 向心形内部推进
+  }
+  // 滚轮缩放（桌面）
+  canvas.addEventListener('wheel', e => {
+    e.preventDefault();
+    camZTarget = Math.max(1.2, Math.min(30, camZTarget + e.deltaY * 0.012));
+  }, { passive: false });
+  // 双指 pinch 缩放（移动端）
+  let pinchD0 = 0, pinchZ0 = 0;
   if (isDesktop){
     window.addEventListener('mousemove', e => trackPointer(e.clientX, e.clientY), { passive: true });
     canvas.style.pointerEvents = 'auto';
     canvas.style.cursor = 'grab';
     canvas.addEventListener('mousedown', e => dragStart(e.clientX, e.clientY));
     window.addEventListener('mousemove', e => dragMove(e.clientX, e.clientY), { passive: true });
-    window.addEventListener('mouseup', dragEnd);
+    window.addEventListener('mouseup', e => dragEnd(e.clientX, e.clientY));
   } else {
     window.addEventListener('touchmove', e => trackPointer(e.touches[0].clientX, e.touches[0].clientY), { passive: true });
     window.addEventListener('touchstart', e => trackPointer(e.touches[0].clientX, e.touches[0].clientY), { passive: true });
     canvas.style.pointerEvents = 'auto';
-    canvas.addEventListener('touchstart', e => dragStart(e.touches[0].clientX, e.touches[0].clientY), { passive: true });
-    canvas.addEventListener('touchmove', e => dragMove(e.touches[0].clientX, e.touches[0].clientY), { passive: true });
-    canvas.addEventListener('touchend', dragEnd, { passive: true });
+    canvas.addEventListener('touchstart', e => {
+      if (e.touches.length === 2){
+        pinchD0 = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+        pinchZ0 = camZTarget;
+        dragging = false;  // 进入 pinch 模式
+      } else {
+        dragStart(e.touches[0].clientX, e.touches[0].clientY);
+      }
+    }, { passive: true });
+    canvas.addEventListener('touchmove', e => {
+      if (e.touches.length === 2 && pinchD0 > 0){
+        const d = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+        camZTarget = Math.max(1.2, Math.min(30, pinchZ0 * (pinchD0 / d)));
+      } else if (e.touches.length === 1){
+        dragMove(e.touches[0].clientX, e.touches[0].clientY);
+      }
+    }, { passive: true });
+    canvas.addEventListener('touchend', e => {
+      if (pinchD0 > 0 && e.touches.length === 0){ pinchD0 = 0; return; }
+      dragEnd(e.changedTouches[0].clientX, e.changedTouches[0].clientY);
+    }, { passive: true });
   }
 
   // 形态时间线：0-3s 散布→心形；3-9s 心形驻留（心跳）；
@@ -6123,6 +6202,9 @@ function renderWishScene(ch){
   const t0 = performance.now();
   const stop = () => { running = false; };
   (ch._wishStop = stop);
+  // 调试接口（测试用）
+  window.__wishDebug = () => ({ camZ, camZTarget, diveVel, textCount: textSprites.length });
+  const _wishCleanupDebug = () => { delete window.__wishDebug; };
 
   function wishLoop(){
     if (!running) return;
@@ -6151,7 +6233,7 @@ function renderWishScene(ch){
       wishGroup.rotation.y += velY + 0.0022;
       wishGroup.rotation.x += velX + Math.sin(ts * 0.22) * 0.0008;
     }
-    // 入场动画：从左上漂到中心 + 缩放放大（2.5 秒 ease-out 后停止干预）
+    // 入场动画：从远处 0.6 倍缩放慢慢推近 + 放大（2.5 秒 ease-out 后停止干预）
     if (ts < 2.5){
       const e = ts / 2.5;
       const ease = 1 - Math.pow(1 - e, 3);  // easeOutCubic
@@ -6160,21 +6242,25 @@ function renderWishScene(ch){
       wishGroup.scale.setScalar(0.6 + 0.4 * ease);
     }
 
-    // 文字贴心：沿椭圆轨道环绕心形漂浮，透明度随形态淡入淡出
+    // 相机：缩放目标插值 + 深潜惯性（flick 触发，摩擦衰减）
+    if (Math.abs(diveVel) > 0.001){
+      camZTarget = Math.max(1.2, camZTarget + diveVel);
+      diveVel *= 0.965;   // 摩擦
+    }
+    camZ += (camZTarget - camZ) * 0.06;
+    wishCam.position.z = camZ;
+
+    // 文字围心：字符贴在心形轮廓上，随心跳脉动 + 沿法线方向轻微起伏
     // 心形阶段（prog≈1）文字全亮；散布/双环阶段渐隐
     const textVis = (prog >= 0.85 && prog <= 1.15) ? 1 : (prog > 1.15 ? Math.max(0, 2 - prog) : Math.max(0, prog - 0.3));
-    const hb = 1 + 0.04 * Math.sin(ts * 5.5);
+    const hb = 1 + 0.045 * Math.sin(ts * 5.5);
     textSprites.forEach((sp, si) => {
-      const cfg = sp.userData.cfg;
-      const a = ts * cfg.speed + cfg.phase;
-      const r = cfg.orbitR * hb;
-      sp.position.set(
-        Math.cos(a) * r,
-        Math.sin(a * 1.6 + cfg.phase) * cfg.yAmp * 0.5 + Math.sin(ts * 0.5 + cfg.phase) * 0.3,
-        Math.sin(a) * r * 0.55
-      );
-      // 浪漫变色：粉→紫→金 循环流转，每句错开相位
-      const hueShift = (ts * 0.045 + si * 0.18) % 1;
+      const ud = sp.userData;
+      // 心跳缩放：字符沿心形轮廓法线方向内外呼吸
+      const breathe = hb + Math.sin(ts * 1.4 + ud.phase) * 0.012;
+      sp.position.set(ud.hx * breathe, ud.hy * breathe, TEXT_Z + Math.sin(ts * 0.8 + ud.phase) * 0.08);
+      // 浪漫变色：粉→紫→金 循环流转，每字错开相位
+      const hueShift = (ts * 0.045 + si * 0.09) % 1;
       // 0~0.33 粉、0.33~0.66 淡紫、0.66~1 暖金（RGB 插值三段）
       let cr, cg, cb;
       if (hueShift < 0.33){
@@ -6188,10 +6274,9 @@ function renderWishScene(ch){
         cr = 1.0; cg = 0.80 - k * 0.16; cb = 1.0 - k * 0.45;     // 紫蓝 → 暖粉金
       }
       sp.material.color.setRGB(cr, cg, cb);
-      // 淡入（进场后 2s）+ 轨道远侧（z<0 背面）稍暗，制造纵深
-      const fadeIn = Math.min(1, Math.max(0, (ts - 1.5) / 1.5));
-      const depthDim = sp.position.z < 0 ? 0.55 : 1.0;
-      sp.material.opacity = textVis * fadeIn * depthDim;
+      // 淡入（进场后 1.5s）+ 逐字错落点亮（沿心形轮廓流动感）
+      const fadeIn = Math.min(1, Math.max(0, (ts - 1.2 - si * 0.028) / 0.9));
+      sp.material.opacity = textVis * fadeIn;
     });
 
     renderer.render(wishScene, wishCam);
@@ -6204,6 +6289,7 @@ function renderWishScene(ch){
   viewerFxState.stop = true;
   const cleanup = () => {
     stop();
+    _wishCleanupDebug();
     geo.dispose(); mat.dispose(); renderer.dispose();
     try { renderer.forceContextLoss(); } catch(e){}  // 释放 GL 上下文
     textSprites.forEach(sp => { sp.material.map.dispose(); sp.material.dispose(); });
@@ -6245,7 +6331,7 @@ function renderARScene(ch){
     </div>
     <div class="ar-theme-label"></div>
     <div class="ar-tabs"></div>
-    <div class="ar-hint">${isDesktop ? '拖 拽 · 旋 转 时 光　　点 击 · 凝 视 一 帧' : '滑 动 · 旋 转 时 光　　点 击 · 凝 视 一 帧'}</div>`;
+    <div class="ar-hint">${isDesktop ? '拖 拽 · 旋 转 时 光　　点 击 · 凝 视 一 帧' : '转 动 手 机 · 环 视 时 光　　点 击 · 凝 视 一 帧'}</div>`;
   viewerStage.appendChild(slide);
 
   const canvas = slide.querySelector('.ar-canvas');
@@ -6619,6 +6705,32 @@ function renderARScene(ch){
     }
   }
 
+  // ---------- 陀螺仪：转动手机环视时光墙（移动端） ----------
+  let gyroActive = false, gyroYaw = null, gyroPitch = 0, gyroBase = null;
+  function onGyro(e){
+    if (e.alpha == null || e.beta == null) return;
+    gyroActive = true;
+    const alphaRad = THREE.MathUtils.degToRad(e.alpha);
+    // 以首次读数为基准，转头才转墙（避免进入时跳变）
+    if (gyroBase === null) gyroBase = alphaRad;
+    // 环形差值（-π..π）
+    let dy = alphaRad - gyroBase;
+    while (dy > Math.PI) dy -= Math.PI * 2;
+    while (dy < -Math.PI) dy += Math.PI * 2;
+    gyroYaw = dy;
+    // beta 45°（手机自然持握）为俯仰中性位
+    gyroPitch = THREE.MathUtils.degToRad(Math.max(-35, Math.min(35, e.beta - 45))) * 0.5;
+  }
+  function startGyro(){
+    if (typeof DeviceOrientationEvent !== 'undefined' && DeviceOrientationEvent.requestPermission){
+      DeviceOrientationEvent.requestPermission().then(r => {
+        if (r === 'granted') window.addEventListener('deviceorientation', onGyro);
+      }).catch(() => {});
+    } else {
+      window.addEventListener('deviceorientation', onGyro);
+    }
+  }
+
   const winMove = e => onMove(e.clientX, e.clientY);
   const winUp = e => onUp(e.clientX, e.clientY);
   if (isDesktop){
@@ -6630,6 +6742,8 @@ function renderARScene(ch){
     canvas.addEventListener('touchstart', e => { onDown(e.touches[0].clientX, e.touches[0].clientY); }, { passive: true });
     canvas.addEventListener('touchmove', e => { onMove(e.touches[0].clientX, e.touches[0].clientY); }, { passive: true });
     canvas.addEventListener('touchend', e => { onUp(e.changedTouches[0].clientX, e.changedTouches[0].clientY); }, { passive: true });
+    // iOS 需要用户手势触发权限弹窗：首次触摸时申请
+    canvas.addEventListener('touchstart', startGyro, { once: true, passive: true });
   }
 
   // ---------- 渲染循环 ----------
@@ -6644,7 +6758,10 @@ function renderARScene(ch){
   window.addEventListener('resize', resizeAR);
 
   let running = true;
-  const stop = () => { running = false; };
+  const stop = () => {
+    running = false;
+    window.removeEventListener('deviceorientation', onGyro);
+  };
 
   function arLoop(){
     if (!running) return;
@@ -6656,15 +6773,25 @@ function renderARScene(ch){
     // 背景色向当前主题色缓变
     if (curTheme >= 0) curColor.lerp(arThemes[curTheme].color, 0.035);
 
-    // 空闲时缓慢自转 + 拖拽惯性
+    // 空闲时缓慢自转 + 拖拽惯性；陀螺仪可用时优先跟随手机朝向
     if (!dragging){
-      velY *= 0.94;
-      world.rotation.y += velY + 0.0016;
-      if (rotTargetY !== null){
-        world.rotation.y += (rotTargetY - world.rotation.y) * 0.07;
-        if (Math.abs(rotTargetY - world.rotation.y) < 0.002) rotTargetY = null;
+      if (gyroActive && gyroYaw !== null){
+        // 转动手机 → 时光墙跟随（带阻尼）
+        const targetY = gyroYaw;
+        let dy2 = targetY - world.rotation.y;
+        while (dy2 > Math.PI) dy2 -= Math.PI * 2;
+        while (dy2 < -Math.PI) dy2 += Math.PI * 2;
+        world.rotation.y += dy2 * 0.08;
+        world.rotation.x += (gyroPitch - world.rotation.x) * 0.06;
+      } else {
+        velY *= 0.94;
+        world.rotation.y += velY + 0.0016;
+        if (rotTargetY !== null){
+          world.rotation.y += (rotTargetY - world.rotation.y) * 0.07;
+          if (Math.abs(rotTargetY - world.rotation.y) < 0.002) rotTargetY = null;
+        }
+        world.rotation.x += (0 - world.rotation.x) * 0.03;
       }
-      world.rotation.x += (0 - world.rotation.x) * 0.03;
     }
 
     // 桌面 hover 检测
@@ -7005,8 +7132,12 @@ viewerStage.addEventListener('touchend', e => {
   const dy = e.changedTouches[0].clientY - viewTouchStartY;
   const dt = performance.now() - viewTouchStartT;
   if (dt > 600) return;
+  // 特效互动章节（wish / ar）：滑动全部交给场景内交互（旋转/缩放/深潜/切主题），
+  // 禁用左右滑切章避免冲突 —— 退出走左上角返回按钮
+  if (viewerMode === 'wish') return;
   if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 50){
-    // 左右滑 - 切换章节
+    // 左右滑 - 切换章节（AR 章节禁用：拖拽旋转与切章冲突）
+    if (viewerMode === 'ar') return;
     if (dx < 0) openNextChapter();
     else if (dx > 0) openPrevChapter();
   } else if (Math.abs(dy) > 50){
