@@ -2378,11 +2378,12 @@ const CHAPTERS = [
     planetMeshes.forEach(m => {
       if (m.material.uniforms && m.material.uniforms.uTime) m.material.uniforms.uTime.value = t;
       const d = m.userData;
-      // 公转：再降速 ~2 倍（总累计 ~6 倍），节奏舒缓可互动
-      d.angle += 0.006 * d.speed;
+      // 公转：把 d.speed 范围压缩到 [0.4, 1.5]（避免水星狂转/海王星冻死），base 再降一档
+      const eff = Math.max(0.4, Math.min(1.5, d.speed * 0.4));
+      d.angle += 0.005 * eff;
       m.position.x = Math.cos(d.angle) * d.d;
       m.position.z = Math.sin(d.angle) * d.d;
-      m.rotation.y += d.axial * 0.2;
+      m.rotation.y += d.axial * 0.15;
       // 月亮绕地球公转（也降速）
       if (d.moonMesh){
         d.moonMesh.userData.moonAngle += 0.002;
@@ -2429,7 +2430,9 @@ const CHAPTERS = [
     yaw, pitch, distance, fov: camera.fov,
     planets: planetMeshes.length,
     sun: sun.position.toArray(),
-    galaxy: mainGalaxy.position.toArray()
+    galaxy: mainGalaxy.position.toArray(),
+    angles: planetMeshes.map(m => m.userData.angle),
+    planetPos: planetMeshes.map(m => [m.position.x.toFixed(2), m.position.z.toFixed(2)])
   });
   window.__splashTriggerDive = () => {
     targetDistance = 6;
