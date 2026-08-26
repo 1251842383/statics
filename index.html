@@ -7773,17 +7773,17 @@ document.addEventListener('visibilitychange', () => {
 document.getElementById('openBtn').addEventListener('click', async () => {
   window.openTime = Date.now();
   startMusic();
-  // splash 阶段：播银河专属 BGM（cosmic），2.5 秒俯冲动画
-  switchBGM('cosmic');
+  // splash 阶段直接用钢琴曲（lucky）——原 cosmic 低音垫太像心跳，用户不要；
+  // 与首页同曲，进入相册后无缝延续
+  switchBGM('lucky');
   if (window.__splashTriggerDive) window.__splashTriggerDive();
   // 俯冲动画进行到 1.8s 时，提前释放 splash WebGL 资源（避免和 loader 抢 GPU）
   await new Promise(r => setTimeout(r, 1800));
   if (window.__disposeSplash) window.__disposeSplash();
-  // 俯冲动画结束后再隐藏 splash + 切到 lucky
+  // 俯冲动画结束后再隐藏 splash（BGM 已是 lucky，无需切换）
   await new Promise(r => setTimeout(r, 700));
   document.getElementById('splash').classList.add('hidden');
   setTimeout(() => document.getElementById('splash').remove(), 1300);
-  switchBGM('lucky');  // 切到首页（小幸运）
   // 防御性：即使 photos.json 失败，也要把首页建出来（空数据），让用户至少能点回忆录
   try {
     const photosData = await loadPhotosData();
