@@ -2505,7 +2505,7 @@ const CHAPTERS = [
 
   // ---------- 标签 sprite 工厂 ----------
   function makeLabelTexture(text, opts){
-    const o = Object.assign({ font: '"Noto Serif SC",serif', size: 36, color: '#fff7e8', glow: 'rgba(255,180,140,.8)' }, opts);
+    const o = Object.assign({ font: '"Noto Serif SC",serif', size: 20, color: '#e8d8b8', glow: 'rgba(255,170,120,.5)' }, opts);
     const c = document.createElement('canvas');
     const ctx = c.getContext('2d');
     ctx.font = `300 ${o.size}px ${o.font}`;
@@ -2544,23 +2544,23 @@ const CHAPTERS = [
   // 给每个行星加中文名
   planetMeshes.forEach(m => {
     const w = WIKI[m.userData.name];
-    if (w) addLabel(w.zh, m, { size: 36, glow: 'rgba(255,180,200,.9)', color: '#fff5ec' });
+    if (w) addLabel(w.zh, m, { size: 22, glow: 'rgba(255,170,120,.5)', color: '#e8d8b8' });
   });
   // 月亮
   const earthM = planetMeshes.find(p => p.userData.name === 'earth');
   if (earthM && earthM.userData.moonMesh){
-    addLabel(WIKI.moon.zh, earthM.userData.moonMesh, { size: 26, glow: 'rgba(220,220,255,.7)', color: '#eef2ff' }, 8);
+    addLabel(WIKI.moon.zh, earthM.userData.moonMesh, { size: 18, glow: 'rgba(180,200,220,.5)', color: '#d8dce8' }, 8);
   }
   // 太阳
-  addLabel(WIKI.sun.zh, sun, { size: 44, glow: 'rgba(255,180,80,.95)', color: '#fff2c8' }, 50);
+  addLabel(WIKI.sun.zh, sun, { size: 28, glow: 'rgba(255,170,100,.7)', color: '#f8d8a8' }, 50);
   // 小行星带
-  addLabel(WIKI.asteroidBelt.zh, asteroids, { size: 30, glow: 'rgba(180,140,100,.8)', color: '#ffe6d0' }, 40);
+  addLabel(WIKI.asteroidBelt.zh, asteroids, { size: 20, glow: 'rgba(180,140,100,.6)', color: '#e0c8a8' }, 40);
   // 银河主星系
-  addLabel(WIKI.mainGalaxy.zh, mainGalaxy, { size: 56, glow: 'rgba(220,200,255,.85)', color: '#ffe6ff' }, 500);
+  addLabel(WIKI.mainGalaxy.zh, mainGalaxy, { size: 32, glow: 'rgba(200,180,220,.7)', color: '#f0d8e8' }, 500);
   // 远景星系
   distGalaxies.forEach((g, gi) => {
     const w = WIKI.distGalaxies[gi];
-    if (w) addLabel(w.zh, g, { size: 36, glow: 'rgba(255,200,220,.8)', color: '#fff0f5' }, 350);
+    if (w) addLabel(w.zh, g, { size: 24, glow: 'rgba(220,180,200,.6)', color: '#e8d0d8' }, 350);
   });
   // 卫星：每颗单独加 sprite（挂在 satGroup 上）
   planetMeshes.forEach(m => {
@@ -8280,19 +8280,19 @@ const BGMS = {
       ['G3','B3','D4'],['G3','B3','D4'],['Am3','E4','A4'],['C3','G3','C4']
     ]
   },
-  cosmic: {  // 银河星空 —— Eb 小调 ~52 BPM，史诗 / 太空感，低频垫底 + 高频闪烁
-    tempo: 52, type:'sine', vol:.085, bassVol:.08, padVol:.05,
+  cosmic: {  // 银河星空 —— C 大调 ~60 BPM，钢琴风（triangle + 短促 ADSR），宁静如星
+    tempo: 60, type:'piano', vol:.075, bassVol:.035, padVol:.025,
     melody: [
-      {n:'Eb5',d:2},{n:'G5',d:1},{n:'Bb5',d:1},
-      {n:'Ab5',d:2},{n:'G5',d:1},{n:'Eb5',d:1},
-      {n:'Bb5',d:2},{n:'C6',d:1},{n:'Eb6',d:1},
-      {n:'Bb5',d:2.5},
-      {n:'Ab5',d:1.5},{n:'G5',d:.5},{n:'Eb5',d:2},
-      {n:'F5',d:1.5},{n:'G5',d:.5},{n:'Ab5',d:2.5}
+      {n:'C5',d:1.5},{n:'E5',d:.5},{n:'G5',d:2},
+      {n:'A5',d:1},{n:'G5',d:1},{n:'E5',d:2},
+      {n:'D5',d:1.5},{n:'E5',d:.5},{n:'G5',d:2},
+      {n:'F5',d:1},{n:'E5',d:1},{n:'D5',d:2},
+      {n:'C5',d:1.5},{n:'E5',d:.5},{n:'G5',d:2.5},
+      {n:'A5',d:1},{n:'G5',d:1},{n:'C6',d:2.5}
     ],
     chords: [
-      ['Eb3','Bb3','Eb4'],['Eb3','Bb3','Eb4'],['Ab3','Eb4','Ab4'],['Ab3','Eb4','Ab4'],
-      ['Bb3','F4','Bb4'],['Bb3','F4','Bb4'],['Eb3','G3','Bb3'],['Eb3','Bb3','Eb4']
+      ['C3','E3','G3'],['C3','E3','G3'],['A2','E3','A3'],['A2','E3','A3'],
+      ['F3','A3','C4'],['F3','A3','C4'],['G3','D4','G4'],['C3','E3','G3']
     ]
   }
 };
@@ -8334,6 +8334,36 @@ function _killActiveNotes(fade = 0.08){
 }
 function playNote(freq, st, dur, vol, type){
   if (!audioCtx) return;
+  if (type === 'piano'){
+    // 钢琴：基音 + 2x 谐波（亮度）+ 3x 谐波（细节），快速 attack + 较长 decay
+    const partials = [
+      { mul: 1, amp: 1.00, oscType: 'triangle' },
+      { mul: 2, amp: 0.35, oscType: 'sine' },
+      { mul: 3, amp: 0.12, oscType: 'sine' }
+    ];
+    const master = audioCtx.createGain();
+    master.gain.setValueAtTime(0, st);
+    master.connect(audioCtx.destination);
+    const entry = { gain: master };
+    _activeOscs.add(entry);
+    partials.forEach(p => {
+      const osc = audioCtx.createOscillator();
+      const g = audioCtx.createGain();
+      osc.type = p.oscType;
+      osc.frequency.value = freq * p.mul;
+      // 钢琴 ADSR：attack .005, decay 到 0.4 倍, sustain 0.3, release 自然衰减
+      const peak = vol * p.amp;
+      g.gain.setValueAtTime(0, st);
+      g.gain.linearRampToValueAtTime(peak, st + .005);
+      g.gain.exponentialRampToValueAtTime(peak * 0.35, st + .15);
+      g.gain.exponentialRampToValueAtTime(.001, st + dur);
+      osc.connect(g).connect(master);
+      osc.onended = () => _activeOscs.delete(entry);
+      osc.start(st);
+      osc.stop(st + dur + .1);
+    });
+    return;
+  }
   const osc = audioCtx.createOscillator();
   const g = audioCtx.createGain();
   osc.type = type; osc.frequency.value = freq;
@@ -8446,6 +8476,14 @@ function _unlockIOSAudio(){
     _unlockIOSAudio();
     _lazyInitAudio();
     if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+    // splash 期间启动钢琴版银河 BGM（cosmic 已改为钢琴音色，低音垫极弱，无"心跳"感）
+    if (audioCtx && !currentBGM){
+      const splashEl = document.getElementById('splash');
+      if (splashEl && !splashEl.classList.contains('hidden')){
+        currentBGM = 'cosmic';
+        playBGM('cosmic');
+      }
+    }
   }, { once: false, passive: true });
 });
 // iOS 后台返回时唤醒音频
@@ -8463,8 +8501,8 @@ document.addEventListener('visibilitychange', () => {
 document.getElementById('openBtn').addEventListener('click', async () => {
   window.openTime = Date.now();
   startMusic();
-  // splash 阶段直接用钢琴曲（lucky）——原 cosmic 低音垫太像心跳，用户不要；
-  // 与首页同曲，进入相册后无缝延续
+  // splash 银河阶段用钢琴版 cosmic；进入相册后无缝切到 lucky
+  // （原 cosmic 低音垫太像心跳，用户不要；现已重写为钢琴音色 + 极弱低音）
   switchBGM('lucky');
   if (window.__splashTriggerDive) window.__splashTriggerDive();
   // 俯冲动画进行到 1.8s 时，提前释放 splash WebGL 资源（避免和 loader 抢 GPU）
