@@ -2513,12 +2513,7 @@ const CHAPTERS = [
   resizeFx();
   window.addEventListener('resize', resizeFx);
 
-  // ---------- Three.js 场景：DNA 双螺旋（仅桌面端运行） ----------
-  if (!isDesktop) {
-    // 移动端：不创建 Three.js 渲染器，隐藏 3D canvas，只保留 2D 节点星网 + hex 字符流
-    tdc.style.display = 'none';
-    // 让 2D 层接管视觉，下面只跑 drawFx
-  } else {
+  // ---------- Three.js 场景：DNA 双螺旋（桌面 + 移动端都运行） ----------
   // 多阶段轮换控制器：每个 stage 显示一组 3D 对象，到时间切下一个
   let _loaderRunning = true;
   window.__stopLoaderThree = () => { _loaderRunning = false; };
@@ -2526,12 +2521,13 @@ const CHAPTERS = [
   const _stageGroups = { DNA: [], ROSE_CLOUD: [], BLOOM: [], PETAL_RAIN: [], ALL: [] };
 
   const renderer = new THREE.WebGLRenderer({ canvas: tdc, alpha: true, antialias: true });
-  renderer.setPixelRatio(dpr);
+  renderer.setPixelRatio(isDesktop ? dpr : Math.min(dpr, 1.5));
   renderer.setSize(window.innerWidth, window.innerHeight, false);
   renderer.setClearColor(0x000000, 0);
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
-  camera.position.set(0, 0, 9);
+  // 入场：相机从远处（z=15）缓缓推近到 z=9 —— "逐步放大"
+  camera.position.set(0, 0, 15);
   scene.add(new THREE.AmbientLight(0xffffff, 0.25));
   const pLight1 = new THREE.PointLight(0xff8eb3, 1.6, 30); pLight1.position.set(-6, 4, 5); scene.add(pLight1);
   const pLight2 = new THREE.PointLight(0xc8a2ff, 1.4, 30); pLight2.position.set( 6,-3, 5); scene.add(pLight2);
@@ -2543,8 +2539,8 @@ const CHAPTERS = [
   const helixHeight = 8.2;
   const helixStepY = helixHeight / helixTotal;
 
-  // 桌面端专属：周围星尘场
-  const starCount = 600;
+  // 周围星尘场（移动端减量保流畅）
+  const starCount = isDesktop ? 600 : 240;
   const starGeo = new THREE.BufferGeometry();
   const starPos = new Float32Array(starCount * 3);
   for (let i = 0; i < starCount; i++){
@@ -2631,15 +2627,53 @@ const CHAPTERS = [
   window.addEventListener('resize', onResize3d);
 
   let t0 = performance.now();
+  // 拖拽旋转：整个 3D 场景跟随手势转动（带惯性）——桌面鼠标 + 移动端触摸
+  let _ldDrag = false, _ldLastX = 0, _ldLastY = 0, _ldVelY = 0;
+  const _ldHost = document.getElementById('loader');
+  if (_ldHost){
+    const ldDown = (x, y) => { _ldDrag = true; _ldLastX = x; _ldLastY = y; _ldVelY = 0; };
+    const ldMove = (x, y) => {
+      if (!_ldDrag) return;
+      const dx = x - _ldLastX, dy = y - _ldLastY;
+      scene.rotation.y += dx * 0.005;
+      scene.rotation.x = Math.max(-0.6, Math.min(0.6, scene.rotation.x + dy * 0.003));
+      _ldVelY = dx * 0.005;
+      _ldLastX = x; _ldLastY = y;
+    };
+    const ldUp = () => { _ldDrag = false; };
+    if (isDesktop){
+      _ldHost.addEventListener('mousedown', e => ldDown(e.clientX, e.clientY));
+      window.addEventListener('mousemove', e => ldMove(e.clientX, e.clientY), { passive: true });
+      window.addEventListener('mouseup', ldUp, { passive: true });
+    } else {
+      _ldHost.addEventListener('touchstart', e => ldDown(e.touches[0].clientX, e.touches[0].clientY), { passive: true });
+      _ldHost.addEventListener('touchmove', e => ldMove(e.touches[0].clientX, e.touches[0].clientY), { passive: true });
+      _ldHost.addEventListener('touchend', ldUp, { passive: true });
+    }
+  }
+
   function animate3d(){
     if (!_loaderRunning) return;
     const t = (performance.now() - t0) * 0.001;
+    // 入场推镜：5 秒内 z 15 → 9（ease-out），之后不干预
+    if (t < 5){
+      const e = t / 5;
+      camera.position.z = 9 + 6 * Math.pow(1 - e, 3);
+    }
+    // 拖拽惯性
+    if (!_ldDrag){
+      _ldVelY *= 0.95;
+      scene.rotation.y += _ldVelY;
+    }
     if (!loaded){
+      // 揭示进度：加载进度 与 时间（7 秒内必然铺满）取大者 ——
+      // 照片加载慢时 DNA 也会在数秒内成形，不会"只有一点星星"
+      const prog = Math.max(loadProgress, Math.min(1, t / 7));
       const arrA = strandGeoA.attributes.position.array;
       const arrB = strandGeoB.attributes.position.array;
       const arrR = rungGeo.attributes.position.array;
       for (let i = 0; i < helixTotal; i++){
-        const reveal = Math.max(0, Math.min(1, (loadProgress * helixTotal - i) / 6));
+        const reveal = Math.max(0, Math.min(1, (prog * helixTotal - i) / 6));
         const [ax, ay, az] = helixPoint(i, 0);
         const [bx, by, bz] = helixPoint(i, 1);
         arrA[i*3]=ax; arrA[i*3+1]=ay; arrA[i*3+2]=az;
@@ -3543,8 +3577,8 @@ const CHAPTERS = [
     // __loaderStartTime 在点击"进入相册"时才设置；之前保持 DNA 阶段不动
     if (window.__loaderStartTime){
       const elapsed = performance.now() - window.__loaderStartTime;
-      let target = Math.floor(elapsed / STAGE_DURATION);
-      if (target >= stageOrder.length) target = stageOrder.length - 1;
+      // 循环轮播：加载等待长（照片多）时特效连续不断，而不是停在 ALL
+      let target = Math.floor(elapsed / STAGE_DURATION) % stageOrder.length;
       if (target !== _stageIdx) setStage(target);
     }
     requestAnimationFrame(stageTick);
@@ -3572,7 +3606,6 @@ const CHAPTERS = [
     // 移除 canvas
     if (tdc && tdc.parentNode) tdc.parentNode.removeChild(tdc);
   };
-  } // end if (isDesktop)
 
   // ---------- 移动端专属：浪漫主题（樱花瓣 + 玫瑰 + 心形星座 + 柔光晕） ----------
   if (!isDesktop) {
@@ -3762,12 +3795,13 @@ const CHAPTERS = [
 
     window.__setMobileRose = (p) => { roseReveal = p; };
     window.__drawMobileRomantic = drawMobileRomantic;
+    // 2D 浪漫循环不再启动：移动端现在与桌面共用 3D DNA/玫瑰/花瓣舞台
+    // （旧循环每帧叠不透明暗色 fill，会把 3D 层完全遮黑）
     function mobileLoop(){
       const ts = performance.now() * 0.001;
       drawMobileRomantic(ts);
       requestAnimationFrame(mobileLoop);
     }
-    mobileLoop();
   }
 
   // ---------- 2D 顶层：节点星网 + hex 流 ----------
@@ -3790,8 +3824,12 @@ const CHAPTERS = [
 
   function drawFx(){
     const w = window.innerWidth, h = window.innerHeight;
-    ctx.fillStyle = 'rgba(10, 6, 24, 0.22)';
+    // 关键：用 destination-out 淡出旧帧 —— 保持这层"半透明"而非
+    // 每帧叠加暗色收敛成不透明黑幕（那会把背后的 3D 特效完全遮住）
+    ctx.globalCompositeOperation = 'destination-out';
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.28)';
     ctx.fillRect(0, 0, w, h);
+    ctx.globalCompositeOperation = 'source-over';
     nodes.forEach(n => {
       n.x += n.vx; n.y += n.vy;
       if (n.x < 0 || n.x > w) n.vx *= -1;
@@ -3833,8 +3871,8 @@ const CHAPTERS = [
     });
     requestAnimationFrame(drawFx);
   }
-  // 移动端：不再跑节点星网 + hex 流（已用浪漫主题替代）
-  if (isDesktop) drawFx();
+  // 节点星网 + hex 流：桌面 + 移动端都跑（trail 已改 destination-out，不遮挡 3D）
+  drawFx();
 
   // ---------- 文案 / 日志 / glitch hex ----------
   const quotes = [
