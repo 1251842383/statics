@@ -317,21 +317,40 @@ img{-webkit-user-drag:none;user-drag:none;-webkit-touch-callout:none}
   color:var(--ar-color,#ffb3c8);opacity:0;transform:translateY(12px);transition:opacity .8s ease,transform .8s ease;
   text-shadow:0 0 20px var(--ar-glow,rgba(255,179,200,.6))}
 .ar-theme-label.show{opacity:.95;transform:translateY(0)}
-.ar-tabs{position:absolute;bottom:clamp(56px,9vh,90px);left:50%;transform:translateX(-50%);z-index:4;display:flex;gap:10px;
-  padding:8px 12px;border-radius:999px;background:rgba(8,14,28,.55);backdrop-filter:blur(10px);
+.ar-tabs{position:absolute;bottom:clamp(56px,9vh,90px);left:50%;transform:translateX(-50%);z-index:4;display:flex;gap:12px;
+  padding:10px 16px;border-radius:999px;background:rgba(8,14,28,.55);backdrop-filter:blur(10px);
   border:1px solid rgba(120,180,255,.18)}
-.ar-tab{font-family:"Noto Serif SC",serif;font-size:.82rem;letter-spacing:.25em;color:rgba(190,215,245,.55);
-  padding:7px 16px;border-radius:999px;border:1px solid transparent;background:none;cursor:pointer;
-  transition:all .4s ease;white-space:nowrap}
+.ar-tab{font-family:"Noto Serif SC",serif;font-size:1rem;letter-spacing:.28em;color:rgba(190,215,245,.6);
+  padding:12px 22px;border-radius:999px;border:1px solid transparent;background:none;cursor:pointer;
+  transition:all .4s ease;white-space:nowrap;min-width:64px;min-height:44px}
 .ar-tab:hover{color:#eaf4ff}
 .ar-tab.active{color:#fff;background:var(--ar-color,#ffb3c8);border-color:transparent;
-  box-shadow:0 0 18px var(--ar-glow,rgba(255,179,200,.55));text-shadow:none}
+  box-shadow:0 0 22px var(--ar-glow,rgba(255,179,200,.65));text-shadow:none}
 .ar-hint{position:absolute;bottom:clamp(16px,3vh,28px);left:0;right:0;z-index:3;text-align:center;
   font-size:.68rem;letter-spacing:.35em;color:rgba(140,180,230,.4);pointer-events:none}
 @media(max-width:480px){
-  .ar-tabs{gap:5px;padding:6px 8px;max-width:94vw;overflow-x:auto}
-  .ar-tab{padding:6px 10px;font-size:.72rem;letter-spacing:.12em}
+  .ar-tabs{gap:8px;padding:8px 10px;max-width:94vw;overflow-x:auto}
+  .ar-tab{padding:10px 14px;font-size:.85rem;letter-spacing:.16em;min-width:52px;min-height:40px}
   .ar-theme-label{letter-spacing:.4em;bottom:clamp(104px,15vh,150px)}
+}
+
+/* ====== wish 章节 底部文案页 + tabs ====== */
+.wish-pages{position:absolute;left:0;right:0;bottom:clamp(150px,22vh,210px);z-index:3;
+  display:flex;flex-direction:column;align-items:center;gap:14px;pointer-events:none;
+  padding:0 6vw}
+.wish-page{font-family:"Noto Serif SC",serif;font-weight:200;color:rgba(255,235,245,.92);
+  font-size:clamp(.95rem,2.6vw,1.1rem);line-height:2.1;letter-spacing:.08em;text-align:center;
+  opacity:0;transition:opacity .9s ease,transform .9s ease;transform:translateY(14px);
+  text-shadow:0 0 18px rgba(255,140,180,.45)}
+.wish-page.show{opacity:.92;transform:translateY(0)}
+.wish-tabs{position:absolute;bottom:clamp(56px,9vh,90px);left:50%;transform:translateX(-50%);z-index:5;
+  display:flex;gap:14px;padding:8px 6px}
+.wish-tabs .ar-tab{color:rgba(255,210,225,.55);min-width:78px}
+.wish-tabs .ar-tab.active{background:#ff9bbf;color:#fff;box-shadow:0 0 22px rgba(255,140,180,.65)}
+@media(max-width:480px){
+  .wish-pages{bottom:clamp(150px,24vh,200px);gap:10px}
+  .wish-page{font-size:.92rem;line-height:1.95}
+  .wish-tabs .ar-tab{min-width:60px;font-size:.78rem;padding:9px 12px}
 }
 
 /* 封面特殊样式 */
@@ -5990,6 +6009,8 @@ function renderWishScene(ch){
     <div class="viewer-slide wish">
       <canvas class="wish-3d"></canvas>
       <div class="wish-hearts">${hearts}</div>
+      <div class="wish-pages"></div>
+      <div class="wish-tabs"></div>
     </div>`;
 
   // ============ 程序员浪漫：标题"解码"效果 + 相爱天数计数 ============
@@ -6195,12 +6216,37 @@ function renderWishScene(ch){
   const textSprites = [];
   // 组装心形文字：三条同心心形环 —— 内环标题大字，中外环正文，逐字贴附轮廓
   const wishTitle = '下一个十年';
-  const wishLines = [
-    '愿我们继续牵着彼此的手看更多的山海走更远的路',
-    '愿我们的小家永远充满笑声愿柯柯健康快乐地长大',
-    '愿十年后二十年后五十年后你仍是我最想见的那个人',
-    'Forever ♥'
+  // 多段愿望——循环播放：每段是一段完整文案；字会先在底部浮出整段，然后逐字飞向心
+  const wishPages = [
+    {
+      title: wishTitle,
+      lines: [
+        '愿我们继续牵着彼此的手看更多的山海走更远的路',
+        '愿我们的小家永远充满笑声愿柯柯健康快乐地长大',
+        '愿十年后二十年后五十年后你仍是我最想见的那个人',
+        'Forever ♥'
+      ]
+    },
+    {
+      title: '下一段旅程',
+      lines: [
+        '愿每一个清晨醒来你都在身边',
+        '愿每一个傍晚都有一起看的晚霞',
+        '愿所有的柴米油盐都变成情味',
+        'Marry me again.'
+      ]
+    },
+    {
+      title: '给未来的信',
+      lines: [
+        '愿我们记得第一次心动的感觉',
+        '愿我们不被岁月磨去眼中的光',
+        '愿我们白发时还能牵手走过街角',
+        'Always & forever.'
+      ]
+    }
   ];
+  const wishLines = wishPages[0].lines;
   // 心形曲线（与粒子 posHeart 同款），弧长参数化
   function heartPoint(u){
     const hx = 16 * Math.pow(Math.sin(u), 3);
@@ -6253,7 +6299,15 @@ function renderWishScene(ch){
       const sp = new THREE.Sprite(sm);
       const sc = ring.charScale;
       sp.scale.set(sc, sc * (tex.image.height / tex.image.width), 1);
-      sp.userData = { hx: hx * ring.scale, hy: hy * ring.scale, phase: charIdx * 0.35, big: ring.size > 80 };
+      sp.userData = {
+        hx: hx * ring.scale, hy: hy * ring.scale,
+        phase: charIdx * 0.35, big: ring.size > 80,
+        state: 'in',        // 'in' 飞入心 → 'attached' 贴附心 → 'out' 飞散/重组
+        startT: 1.0 + charIdx * 0.045,  // 入场开始时间
+        inT: 0,             // 入场结束时间
+        outT: 0,            // 飞散开始时间
+        pageX: 0, pageY: 0  // 重组成页时的目标坐标（屏幕空间，传入 vertex shader 偏移）
+      };
       wishGroup.add(sp);
       textSprites.push(sp);
       charIdx++;
@@ -6291,6 +6345,7 @@ function renderWishScene(ch){
   let dragging = false, lastX = 0, lastY = 0, velX = 0, velY = 0;
   let camZ = 13, camZTarget = 13, diveVel = 0;   // 相机距离 + 深潜速度
   let downX = 0, downY = 0, downT = 0;
+  let _wasDragging = false;   // 拖动后短暂屏蔽 click，避免拖动结束误触发文案解散
   function dragStart(x, y){ dragging = true; lastX = x; lastY = y; velX = velY = 0; downX = x; downY = y; downT = performance.now(); }
   function dragMove(x, y){
     if (!dragging) return;
@@ -6307,6 +6362,15 @@ function renderWishScene(ch){
     const dt = performance.now() - downT;
     const dy = (y ?? downY) - downY;
     if (dt < 280 && dy < -60) diveVel = -0.55;   // 负 = 向心形内部推进
+    // 短按（位移 <6px 且时长 >180ms）→ 视为 click，触发文案解散
+    const totalDx = (x ?? downX) - downX;
+    const totalDy = (y ?? downY) - downY;
+    const totalDist = Math.hypot(totalDx, totalDy);
+    if (totalDist < 6 && dt > 180 && dt < 500){
+      // 触发由 canvas click 监听器统一处理
+    }
+    _wasDragging = true;
+    setTimeout(() => { _wasDragging = false; }, 30);
   }
   // 滚轮缩放（桌面）
   canvas.addEventListener('wheel', e => {
@@ -6346,6 +6410,12 @@ function renderWishScene(ch){
     canvas.addEventListener('touchend', e => {
       if (pinchD0 > 0 && e.touches.length === 0){ pinchD0 = 0; return; }
       dragEnd(e.changedTouches[0].clientX, e.changedTouches[0].clientY);
+      // 短按兜底（移动端 click 不一定合成）：位移小 + 时长适中 → 触发解散
+      const dt = performance.now() - downT;
+      const td = Math.hypot(e.changedTouches[0].clientX - downX, e.changedTouches[0].clientY - downY);
+      if (td < 8 && dt > 160 && dt < 600 && !_wasDragging){
+        triggerFlyOut();
+      }
     }, { passive: true });
   }
 
@@ -6358,6 +6428,145 @@ function renderWishScene(ch){
   // 调试接口（测试用）
   window.__wishDebug = () => ({ camZ, camZTarget, diveVel, textCount: textSprites.length });
   const _wishCleanupDebug = () => { delete window.__wishDebug; };
+
+  // ============ 文案页层（DOM）+ 翻页 tabs + 点击/手势触发 flyOut ============
+  // 时间线：
+  //   attached 进入 → 0.6s 后 DOM 文案浮现
+  //   用户点 tabs/心形 canvas/划过心形 → flyOut → 重组 → 新页
+  //   或 8s 无操作 → 自动 flyOut → 重组
+  const pagesEl = viewerStage.querySelector('.wish-pages');
+  const tabsEl = viewerStage.querySelector('.wish-tabs');
+  let currentPage = 0;
+  let pageAppearT = 0;        // 当前页文案浮现时间
+  let pageShown = false;      // 文案是否已浮现
+  let flyOutAt = -1;          // 触发解散的 ts（-1 = 未触发）
+  let flyOutReason = null;    // 'auto' / 'manual' / 'tab'
+  const PAGE_AUTO_FLYOUT = 9; // attached 进入后 9s 无操作自动解散
+
+  function buildWishTabs(){
+    tabsEl.innerHTML = '';
+    wishPages.forEach((pg, i) => {
+      const b = document.createElement('button');
+      b.className = 'ar-tab' + (i === currentPage ? ' active' : '');
+      b.textContent = pg.title;
+      b.addEventListener('click', e => {
+        e.stopPropagation();
+        if (i === currentPage) return;
+        // 直接跳到目标页：先解散当前，飞散期间切到目标
+        flyOutAt = tsNow();
+        flyOutReason = 'tab';
+        targetPageAfter = i;
+      });
+      tabsEl.appendChild(b);
+    });
+  }
+  function showPage(i, instant){
+    currentPage = i;
+    pagesEl.innerHTML = '';
+    const pg = wishPages[i];
+    pg.lines.forEach((ln, li) => {
+      const p = document.createElement('div');
+      p.className = 'wish-page';
+      p.textContent = ln;
+      pagesEl.appendChild(p);
+      // 错落浮现
+      const delay = instant ? 0 : 220 * li;
+      setTimeout(() => p.classList.add('show'), delay);
+    });
+    // 同步 tabs active
+    tabsEl.querySelectorAll('.ar-tab').forEach((b, bi) => b.classList.toggle('active', bi === i));
+  }
+  function tsNow(){ return (performance.now() - t0) * 0.001; }
+  let targetPageAfter = -1;
+
+  buildWishTabs();
+  // 首次文案浮现延后到 1.5s（等粒子成心形）
+  let _initPageShown = false;
+  function maybeShowInitial(){
+    if (_initPageShown) return;
+    _initPageShown = true;
+    showPage(0, false);
+    pageAppearT = tsNow();
+    pageShown = true;
+  }
+
+  // 字在屏底的目标坐标（DOM 几何 → 投影到心形坐标空间）
+  function pageCharXY(pageIdx, charIdx){
+    const r = canvas.getBoundingClientRect();
+    const pagesR = pagesEl.getBoundingClientRect();
+    // 从 pagesR.top 取每行 24 px 步进，第 0 行 top，第 1 行 top+24... 粗略即可
+    const lineHeight = pagesR.height / Math.max(1, wishPages[pageIdx].lines.length);
+    const line = Math.floor(charIdx / 6);  // 每 6 字一行（粗略）
+    const col = charIdx % 6;
+    // 像素中心
+    const pxCenter = pagesR.left + pagesR.width / 2;
+    const pxX = pxCenter - 60 + col * 22;
+    const pxY = pagesR.top + lineHeight * (line + 0.5);
+    // 转换为世界空间：透视投影 → z = TEXT_Z
+    const ndcX = ((pxX - r.left) / r.width) * 2 - 1;
+    const ndcY = -(((pxY - r.top) / r.height) * 2 - 1);
+    const worldX = ndcX * Math.tan(wishCam.fov * Math.PI / 360) * wishCam.aspect * camZ;
+    const worldY = ndcY * Math.tan(wishCam.fov * Math.PI / 360) * camZ;
+    return [worldX, worldY];
+  }
+
+  // 触发动画：划入心形 / 点击心形 / 点击 tabs
+  function triggerFlyOut(){
+    if (flyOutAt > 0) return;  // 已在飞散
+    flyOutAt = tsNow();
+    flyOutReason = 'manual';
+  }
+  // canvas 点击触发（避开文字 canvas 让 heart 形心点击也算）
+  canvas.addEventListener('click', e => {
+    if (_wasDragging) return;
+    e.stopPropagation();
+    triggerFlyOut();
+  });
+  // 划过心形：鼠标/触摸进入 canvas 中心区域后，向心方向快速滑动
+  let _swipeT = 0;
+  function checkSwipe(x, y){
+    const r = canvas.getBoundingClientRect();
+    const cx = r.left + r.width / 2;
+    const cy = r.top + r.height / 2;
+    const d = Math.hypot(x - cx, y - cy);
+    if (d < r.width * 0.18){
+      const now = performance.now();
+      if (now - _swipeT < 220) triggerFlyOut();
+      _swipeT = now;
+    }
+  }
+  canvas.addEventListener('mousemove', e => checkSwipe(e.clientX, e.clientY));
+  canvas.addEventListener('touchmove', e => {
+    if (e.touches.length === 1) checkSwipe(e.touches[0].clientX, e.touches[0].clientY);
+  }, { passive: true });
+
+  // wishCtl：被 wishLoop 内部读取
+  const wishCtl = {
+    shouldFlyOut(ts, si){
+      // 仅第一字用来做全局判断
+      if (si !== 0) return false;
+      if (flyOutAt > 0) return true;
+      // 自动飞散：attached 后 9s
+      if (_initPageShown && ts - pageAppearT > PAGE_AUTO_FLYOUT){
+        flyOutAt = ts;
+        flyOutReason = 'auto';
+        return true;
+      }
+      return false;
+    }
+  };
+
+  // wish 章节当前页索引 → 把每个 sprite 的 pageXY 设为闭包
+  textSprites.forEach((sp, si) => {
+    sp.userData.pageXY = () => {
+      const pg = wishPages[currentPage];
+      // 把 sprite 索引 si 按行/列重排成页布局（粗略 8 列）
+      const cols = 7;
+      const line = Math.floor(si / cols);
+      const col = si % cols;
+      return pageCharXY(currentPage, line * cols + col);
+    };
+  });
 
   function wishLoop(){
     if (!running) return;
@@ -6403,34 +6612,109 @@ function renderWishScene(ch){
     camZ += (camZTarget - camZ) * 0.06;
     wishCam.position.z = camZ;
 
-    // 文字围心：字符贴在心形轮廓上，随心跳脉动 + 沿法线方向轻微起伏
-    // 心形阶段（prog≈1）文字全亮；散布/双环阶段渐隐
-    const textVis = (prog >= 0.85 && prog <= 1.15) ? 1 : (prog > 1.15 ? Math.max(0, 2 - prog) : Math.max(0, prog - 0.3));
+    // 文字围心：每个 sprite 按 state 走 in → attached → out
+    // in 阶段：从起始偏移飞向心形轮廓位置
+    // attached：贴在心形上，随心跳呼吸
+    // out：解散为心外飞散 → 重组成底部页 → 新一轮 in
     const hb = 1 + 0.045 * Math.sin(ts * 5.5);
     textSprites.forEach((sp, si) => {
       const ud = sp.userData;
-      // 心跳缩放：字符沿心形轮廓法线方向内外呼吸
-      const breathe = hb + Math.sin(ts * 1.4 + ud.phase) * 0.012;
-      sp.position.set(ud.hx * breathe, ud.hy * breathe, TEXT_Z + Math.sin(ts * 0.8 + ud.phase) * 0.08);
+      // 跳到 attached：每个字入场完成后 3.5 s 自动转入 attached
+      if (ud.state === 'in' && ud.inT && ts > ud.inT + 3.5){
+        ud.state = 'attached';
+        ud.stayT = ts;
+      }
+      // 跳到 out：用户点击 / 划过 / 满 6 s 后自动解散
+      if (ud.state === 'attached' && wishCtl.shouldFlyOut(ts, si)){
+        ud.state = 'out';
+        ud.outT = ts;
+      }
+      // 跳到新一轮 in：out 阶段 1.8s 飞散 + 0.7s 重组成页完成
+      if (ud.state === 'out' && ud.outT && ts > ud.outT + 2.5){
+        ud.state = 'in';
+        ud.startT = ts + 0.05 * si;
+        ud.inT = 0; ud.outT = 0; ud.stayT = 0;
+      }
+
+      let tx, ty, tz, opacity;
+      if (ud.state === 'in'){
+        // 从散乱起始位置 (随机角度散开) 飞向心形位置
+        const seedA = ud.phase * 7.3;
+        const sx0 = Math.cos(seedA) * 4.5;
+        const sy0 = Math.sin(seedA) * 4.5 + 2.2;
+        const local = Math.min(1, Math.max(0, (ts - ud.startT) / 1.1));
+        const ease = 1 - Math.pow(1 - local, 3);  // easeOutCubic
+        tx = sx0 + (ud.hx * hb - sx0) * ease;
+        ty = sy0 + (ud.hy * hb - sy0) * ease;
+        tz = TEXT_Z + (1 - ease) * 1.4;
+        opacity = ease;
+        if (local >= 1 && !ud.inT) ud.inT = ts;
+      } else if (ud.state === 'attached'){
+        // 心跳缩放：字符沿心形轮廓法线方向内外呼吸
+        const breathe = hb + Math.sin(ts * 1.4 + ud.phase) * 0.012;
+        tx = ud.hx * breathe;
+        ty = ud.hy * breathe;
+        tz = TEXT_Z + Math.sin(ts * 0.8 + ud.phase) * 0.08;
+        opacity = 1;
+      } else {  // 'out'
+        const local = Math.min(1, Math.max(0, (ts - ud.outT) / 1.6));
+        const ease = local < 0.45
+          ? 1 - Math.pow(1 - local / 0.45, 2)         // 0~0.45 飞散加速
+          : 1;                                          // 0.45~1 已经在新页位置
+        // 0~0.45：从心位置 → 屏外飞散 + 缩小
+        // 0.45~1：从飞散位置 → 屏底重组到新页位置（DOM .wish-pages 的中心）
+        const [pageX, pageY] = ud.pageXY ? ud.pageXY() : [0, -2.5];
+        if (local < 0.45){
+          const k = local / 0.45;
+          tx = ud.hx * (1 - k) + Math.cos(ud.phase * 5.1) * 3.6 * k;
+          ty = ud.hy * (1 - k) + Math.sin(ud.phase * 7.7) * 3.6 * k - 1.4 * k;
+          tz = TEXT_Z - 1.6 * k;
+        } else {
+          const k = (local - 0.45) / 0.55;
+          const e = 1 - Math.pow(1 - k, 3);
+          const sx = Math.cos(ud.phase * 5.1) * 3.6;
+          const sy = Math.sin(ud.phase * 7.7) * 3.6 - 1.4;
+          tx = sx + (pageX - sx) * e;
+          ty = sy + (pageY - sy) * e;
+          tz = TEXT_Z - 1.6 + 1.6 * e;
+        }
+        opacity = 1 - ease * 0.4;  // 飞散时短暂变暗，重组后恢复
+      }
+
+      sp.position.set(tx, ty, tz);
+
       // 浪漫变色：粉→紫→金 循环流转，每字错开相位
       const hueShift = (ts * 0.045 + si * 0.09) % 1;
-      // 0~0.33 粉、0.33~0.66 淡紫、0.66~1 暖金（RGB 插值三段）
       let cr, cg, cb;
       if (hueShift < 0.33){
         const k = hueShift / 0.33;
-        cr = 1.0; cg = 0.62 + k * 0.02; cb = 0.70 + k * 0.30;   // 粉 → 淡紫
+        cr = 1.0; cg = 0.62 + k * 0.02; cb = 0.70 + k * 0.30;
       } else if (hueShift < 0.66){
         const k = (hueShift - 0.33) / 0.33;
-        cr = 0.85 + k * 0.15; cg = 0.64 + k * 0.16; cb = 1.0;    // 淡紫 → 紫蓝
+        cr = 0.85 + k * 0.15; cg = 0.64 + k * 0.16; cb = 1.0;
       } else {
         const k = (hueShift - 0.66) / 0.34;
-        cr = 1.0; cg = 0.80 - k * 0.16; cb = 1.0 - k * 0.45;     // 紫蓝 → 暖粉金
+        cr = 1.0; cg = 0.80 - k * 0.16; cb = 1.0 - k * 0.45;
       }
       sp.material.color.setRGB(cr, cg, cb);
-      // 淡入（进场后 1.5s）+ 逐字错落点亮（沿心形轮廓流动感）
-      const fadeIn = Math.min(1, Math.max(0, (ts - 1.2 - si * 0.028) / 0.9));
-      sp.material.opacity = textVis * fadeIn;
+      sp.material.opacity = opacity;
     });
+
+    // 流程推进：
+    // 1) 粒子成心形（prog ≈ 1 且 ts > 1.5）→ 浮现第一段文案
+    // 2) 飞散完成（所有 sprite 已进入新一轮 in）→ 切页 + 重置
+    if (!_initPageShown && ts > 1.5 && prog >= 0.85 && prog <= 1.15){
+      maybeShowInitial();
+    }
+    if (flyOutAt > 0 && ts - flyOutAt > 2.6){
+      // 飞散完成：新页浮现，重置 flyOutAt
+      const next = targetPageAfter >= 0 ? targetPageAfter : (currentPage + 1) % wishPages.length;
+      showPage(next, false);
+      pageAppearT = ts;
+      pageShown = true;
+      flyOutAt = -1;
+      targetPageAfter = -1;
+    }
 
     renderer.render(wishScene, wishCam);
     requestAnimationFrame(wishLoop);
