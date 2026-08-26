@@ -34,11 +34,11 @@ img{-webkit-user-drag:none;user-drag:none;-webkit-touch-callout:none}
 }
 #splash.hidden{opacity:0;visibility:hidden;pointer-events:none}
 #splash canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none;-webkit-touch-callout:none;user-select:none}
-.splash-content{position:relative;z-index:2;text-align:center;color:#f8e8d4;padding:0 30px}
+.splash-content{position:relative;z-index:2;text-align:center;color:#f8e8d4;padding:0 30px;pointer-events:none}
 .splash-eyebrow{font-family:"Cormorant Garamond",serif;font-style:italic;font-size:clamp(.85rem,3vw,1rem);letter-spacing:.6em;color:rgba(248,232,212,.5);margin-bottom:18px;opacity:0;animation:fadeIn 1.4s ease .3s forwards}
 .splash-title{font-family:"Dancing Script","Cormorant Garamond",serif;font-size:clamp(3rem,12vw,5rem);font-weight:400;letter-spacing:.04em;color:#fff;text-shadow:0 0 40px rgba(255,180,200,.4),0 0 80px rgba(180,120,255,.2);margin-bottom:8px;opacity:0;animation:titleIn 1.8s ease .8s forwards}
 .splash-sub{font-family:"Cormorant Garamond",serif;font-style:italic;font-size:clamp(.85rem,3vw,1rem);letter-spacing:.5em;color:rgba(248,232,212,.7);margin-bottom:36px;opacity:0;animation:fadeIn 1.4s ease 1.4s forwards}
-.splash-btn{display:inline-flex;align-items:center;gap:10px;padding:14px 40px;background:rgba(248,232,212,.05);border:1px solid rgba(248,232,212,.4);color:#f8e8d4;font-family:"Noto Serif SC",serif;font-size:clamp(.9rem,3vw,1rem);letter-spacing:.35em;cursor:pointer;border-radius:50px;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);opacity:0;animation:fadeUp 1.4s ease 2s forwards;transition:all .3s ease}
+.splash-btn{position:absolute;z-index:3;right:max(34px,env(safe-area-inset-right));bottom:max(72px,calc(env(safe-area-inset-bottom) + 56px));display:inline-flex;align-items:center;gap:10px;padding:14px 40px;background:rgba(248,232,212,.06);border:1px solid rgba(248,232,212,.4);color:#f8e8d4;font-family:"Noto Serif SC",serif;font-size:clamp(.9rem,3vw,1rem);letter-spacing:.35em;cursor:pointer;border-radius:50px;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);opacity:0;animation:fadeUp 1.4s ease 2s forwards;transition:all .3s ease}
 .splash-btn:active{transform:scale(.96);background:rgba(248,232,212,.12);border-color:#f8e8d4}
 .splash-btn .heart{display:inline-block;color:#ff6b95;animation:heartbeat 1.4s ease-in-out infinite;font-size:1.1em}
 .splash-hint{position:absolute;bottom:max(30px,env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);color:rgba(248,232,212,.35);font-size:.7rem;letter-spacing:.4em;z-index:2;animation:fadeIn 1.4s ease 2.5s forwards;opacity:0}
@@ -1244,8 +1244,8 @@ img{-webkit-user-drag:none;user-drag:none;-webkit-touch-callout:none}
     <div class="splash-eyebrow">A LOVE STORY · 2017 — ∞</div>
     <h1 class="splash-title">Love Story</h1>
     <div class="splash-sub">爱 · 的 · 回 · 忆</div>
-    <button class="splash-btn" id="openBtn"><span class="heart">♥</span><span>进 入 相 册</span></button>
   </div>
+  <button class="splash-btn" id="openBtn"><span class="heart">♥</span><span>进 入 相 册</span></button>
   <div class="splash-hint">轻触进入 · 享受音乐请打开声音</div>
 </div>
 
@@ -1708,27 +1708,39 @@ const CHAPTERS = [
     tex.anisotropy = 4;
     return tex;
   }
-  // ============ 真实 NASA / Three.js 贴图加载（多源 fallback） ============
-  // 优先 Three.js examples 公共 CDN（已确认 CORS 友好）；其他行星程序化纹理兜底
+  // ============ 真实 NASA 贴图加载（多源 fallback） ============
+  // 主源 jsdelivr（国内可达 + CORS 全开）镜像 threex.planets（真实 NASA 影像）；
+  // 地球/月亮优先 threejs.org 的 2048 高清版。程序化纹理兜底
   const TEX_URLS = {
     earth: [
-      'https://threejs.org/examples/textures/planets/earth_atmos_2048.jpg'
+      'https://threejs.org/examples/textures/planets/earth_atmos_2048.jpg',
+      'https://cdn.jsdelivr.net/gh/jeromeetienne/threex.planets@master/images/earthmap1k.jpg'
     ],
     moon: [
-      'https://threejs.org/examples/textures/planets/moon_1024.jpg'
+      'https://threejs.org/examples/textures/planets/moon_1024.jpg',
+      'https://cdn.jsdelivr.net/gh/jeromeetienne/threex.planets@master/images/moonmap1k.jpg'
     ],
-    // 人造卫星实景图（Wikimedia 公共领域）
-    iss: [
-      'https://upload.wikimedia.org/wikipedia/commons/thumb/0/04/International_Space_Station_after_undocking_of_STS-132.jpg/512px-International_Space_Station_after_undocking_of_STS-132.jpg'
+    mercury: [
+      'https://cdn.jsdelivr.net/gh/jeromeetienne/threex.planets@master/images/mercurymap.jpg'
     ],
-    hubble: [
-      'https://upload.wikimedia.org/wikipedia/commons/thumb/3/30/Hubble_01.jpg/512px-Hubble_01.jpg'
+    venus: [
+      'https://cdn.jsdelivr.net/gh/jeromeetienne/threex.planets@master/images/venusmap.jpg'
     ],
-    tiangong: [
-      'https://upload.wikimedia.org/wikipedia/commons/thumb/3/3a/Tiangong_space_station_line_drawing.png/512px-Tiangong_space_station_line_drawing.png'
+    mars: [
+      'https://cdn.jsdelivr.net/gh/jeromeetienne/threex.planets@master/images/marsmap1k.jpg'
+    ],
+    jupiter: [
+      'https://cdn.jsdelivr.net/gh/jeromeetienne/threex.planets@master/images/jupitermap.jpg'
+    ],
+    saturn: [
+      'https://cdn.jsdelivr.net/gh/jeromeetienne/threex.planets@master/images/saturnmap.jpg'
+    ],
+    uranus: [
+      'https://cdn.jsdelivr.net/gh/jeromeetienne/threex.planets@master/images/uranusmap.jpg'
+    ],
+    neptune: [
+      'https://cdn.jsdelivr.net/gh/jeromeetienne/threex.planets@master/images/neptunemap.jpg'
     ]
-    // 其他行星（水/金/火/木/土/天/海）：用程序化纹理，木星保留条带 shader，
-    // 火星保留锈红程序化纹理。教学场景下地球+月亮高分辨率实景已足够震撼
   };
   // 同步探测：按顺序尝试，命中即返回
   function tryLoadTexture(urls, fallbackTex){
@@ -1763,6 +1775,50 @@ const CHAPTERS = [
     earth: createEarthTexture(),
     moon:  createMoonTexture()
   };
+  // 程序化卫星剖面贴图（Wikimedia 国内不可达，改为本地绘制始终可见）：
+  // 0 = ISS（桁架 + 双侧太阳翼） 1 = Hubble（镜筒 + 两侧太阳板） 2 = 天宫（T 字构型）
+  function createSatTexture(kind){
+    const cv = document.createElement('canvas');
+    cv.width = 256; cv.height = 128;
+    const ctx = cv.getContext('2d');
+    const PANEL = '#2a3f6e', MODULE = '#d8dce4', MODULE_D = '#9aa2b0';
+    const panel = (x, y, w, h) => {
+      ctx.fillStyle = PANEL; ctx.fillRect(x, y, w, h);
+      ctx.strokeStyle = 'rgba(140,170,255,.5)'; ctx.lineWidth = 1;
+      for (let gx = x + w/4; gx < x + w; gx += w/4){ ctx.beginPath(); ctx.moveTo(gx, y); ctx.lineTo(gx, y+h); ctx.stroke(); }
+      for (let gy = y + h/3; gy < y + h; gy += h/3){ ctx.beginPath(); ctx.moveTo(x, gy); ctx.lineTo(x+w, gy); ctx.stroke(); }
+    };
+    const module = (x, y, w, h) => {
+      ctx.fillStyle = MODULE; ctx.fillRect(x, y, w, h);
+      ctx.fillStyle = MODULE_D; ctx.fillRect(x, y + h*0.72, w, h*0.28);
+    };
+    ctx.clearRect(0, 0, 256, 128);
+    if (kind === 0){
+      // ISS：中央桁架 + 4 对大太阳翼 + 居中舱段群
+      ctx.fillStyle = MODULE_D; ctx.fillRect(96, 60, 64, 8);       // 主桁架
+      panel(4, 38, 44, 22); panel(4, 68, 44, 22);                  // 左翼
+      panel(208, 38, 44, 22); panel(208, 68, 44, 22);              // 右翼
+      module(112, 44, 32, 40);                                      // 节点舱
+      module(88, 52, 20, 24); module(148, 52, 20, 24);              // 实验舱
+      ctx.fillStyle = MODULE; ctx.fillRect(120, 24, 16, 18); ctx.fillRect(120, 86, 16, 18); // 上下舱段
+    } else if (kind === 1){
+      // Hubble：镜筒本体 + 打开的两块太阳板
+      module(96, 44, 64, 40);                                       // 镜筒
+      ctx.fillStyle = MODULE_D; ctx.beginPath(); ctx.arc(128, 64, 14, 0, Math.PI*2); ctx.fill(); // 主镜口
+      panel(18, 52, 60, 24); panel(178, 52, 60, 24);                // 太阳板
+      ctx.fillStyle = MODULE_D; ctx.fillRect(92, 60, 8, 8); ctx.fillRect(156, 60, 8, 8);
+    } else {
+      // 天宫：T 字构型（核心舱 + 两侧实验舱 + 近端太阳翼）
+      module(116, 36, 24, 56);                                      // 核心舱（竖）
+      module(72, 48, 112, 20);                                      // 横向实验舱对
+      panel(24, 50, 40, 16); panel(192, 50, 40, 16);                // 太阳翼
+      ctx.fillStyle = MODULE; ctx.fillRect(120, 92, 16, 16);        // 对接舱
+    }
+    const tex = new T.CanvasTexture(cv);
+    tex.colorSpace = T.SRGBColorSpace;
+    tex.anisotropy = 4;
+    return tex;
+  }
   // 异步替换每个行星的贴图
   Object.keys(TEX_URLS).forEach(name => {
     const urls = TEX_URLS[name];
@@ -1771,10 +1827,15 @@ const CHAPTERS = [
       if (!tex) return;
       const planet = planetMeshes.find(p => p.userData.name === name);
       if (!planet) return;
-      planet.material.map = tex;
-      planet.material.needsUpdate = true;
-      if (name === 'earth' && planet.userData.moonMesh){
-        // 月亮用同一 loader 链异步加载
+      // 木星原来是条带 ShaderMaterial：贴图到位后整体换成 Lambert 材质
+      if (planet.material.isShaderMaterial){
+        planet.material.dispose();
+        planet.material = new T.MeshLambertMaterial({ map: tex, emissive: 0x14141f });
+      } else {
+        planet.material.map = tex;
+        planet.material.color.set(0xffffff);  // 去掉底色避免给贴图染色
+        planet.material.emissive.setHex(0x14141f);  // 夜面隐约可见
+        planet.material.needsUpdate = true;
       }
     });
   });
@@ -1795,18 +1856,21 @@ const CHAPTERS = [
   let yaw = 0, pitch = 0.05, distance = 12;  // 默认距离改为 12：贴近地球（轨道半径）
   let targetYaw = 0, targetPitch = 0.05, targetDistance = 12, targetFOV = 60;
   let isDragging = false, lastX = 0, lastY = 0;
-  // 默认相机聚焦在地球（用户要求"以地球为中心"）
+  // 默认相机聚焦在地球（用户要求"以地球为中心"）；点击其他天体/星系后切换
+  let focusObj = null;
   let cameraTarget = { x: 12, y: 0, z: 0 };
   let targetCameraTarget = { x: 12, y: 0, z: 0 };
   function applyCamera(){
-    // 找地球，更新 target（相机跟随地球缓慢公转，让地球始终在视野中心）
-    const earth = planetMeshes.find(p => p.userData.name === 'earth');
-    if (earth){
-      targetCameraTarget.x = earth.position.x;
-      targetCameraTarget.z = earth.position.z;
+    // 跟随当前聚焦对象（默认地球）；对象被移除时回退地球
+    const f = (focusObj && focusObj.parent) ? focusObj : planetMeshes.find(p => p.userData.name === 'earth');
+    if (f){
+      targetCameraTarget.x = f.position.x;
+      targetCameraTarget.y = f.position.y || 0;
+      targetCameraTarget.z = f.position.z;
     }
     // 平滑过渡 camera target
     cameraTarget.x += (targetCameraTarget.x - cameraTarget.x) * 0.05;
+    cameraTarget.y += (targetCameraTarget.y - cameraTarget.y) * 0.05;
     cameraTarget.z += (targetCameraTarget.z - cameraTarget.z) * 0.05;
     const cp = Math.cos(pitch);
     // 相机位置 = target + 球面偏移
@@ -1854,6 +1918,7 @@ const CHAPTERS = [
     transparent: false
   });
   const sun = new T.Mesh(new T.SphereGeometry(3, 64, 32), sunMat);
+  sun.userData = { name: 'sun', r: 3 };
   scene.add(sun);
 
   // 太阳光晕（BackSide 加法）
@@ -1894,7 +1959,8 @@ const CHAPTERS = [
   const sunLight = new T.PointLight(0xfff0d0, 2.0, 0, 0);
   sunLight.position.set(0, 0, 0);
   scene.add(sunLight);
-  scene.add(new T.AmbientLight(0x404060, 0.45));
+  // 环境光提亮：行星夜面保持隐约可见（否则聚焦夜面时全黑）
+  scene.add(new T.AmbientLight(0x606880, 0.85));
 
   PLANETS.forEach((p) => {
     let mat;
@@ -2000,22 +2066,19 @@ const CHAPTERS = [
         m.add(satGroup);
         m.userData.satellites.push(satGroup);
 
-        // 异步加载真实卫星图，成功后替换为 Sprite（始终面向相机）
-        const imgKey = satImageKeys[si];
-        tryLoadTexture(TEX_URLS[imgKey], null).then(tex => {
-          if (!tex || !satGroup.parent) return;
-          tex.colorSpace = T.SRGBColorSpace;
-          tex.anisotropy = 4;
+        // 程序化绘制的卫星剖面（ISS / Hubble / 天宫）— 无网络依赖，立即替换
+        {
+          const tex = createSatTexture(si);
           const satSprite = new T.Sprite(new T.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, depthTest: false }));
-          // 卫星 sprite 大小：约地球半径的 1/3，splash 拉近也能看清
+          // 卫星 sprite 大小：约地球半径的 0.85，splash 拉近也能看清
           const satScale = p.r * 0.85;
-          satSprite.scale.set(satScale, satScale, 1);
+          satSprite.scale.set(satScale, satScale * 0.5, 1);  // 贴图 2:1 宽高比
           satGroup.add(satSprite);
           satGroup.userData.spriteMesh = satSprite;
           // 隐藏程序化兜底
           if (fallbackSat) fallbackSat.visible = false;
           if (glow) glow.material.opacity = 0.05;
-        });
+        }
 
         // 卫星轨道细线（虚线感：用半透明细环）
         const satOrbitGeo = new T.RingGeometry(satOrbitR - 0.008, satOrbitR + 0.008, 64, 1);
@@ -2164,6 +2227,20 @@ const CHAPTERS = [
   mainGalaxy.position.set(0, 30, -250);
   scene.add(mainGalaxy);
 
+  // 星系核心亮点：可点击的聚焦目标（点击后飞向该星系俯瞰全貌）
+  const galaxyCores = [];
+  const mkGalaxyCore = (g, r) => {
+    const core = new T.Mesh(
+      new T.SphereGeometry(Math.max(3, r * 0.03), 16, 12),
+      new T.MeshBasicMaterial({ color: 0xffe8c0 })
+    );
+    core.userData = { isGalaxyCore: true, r, galaxy: g };
+    g.add(core);
+    galaxyCores.push(core);
+    return core;
+  };
+  mkGalaxyCore(mainGalaxy, 700);
+
   const distGalaxies = [];
   for (let i = 0; i < 3; i++){
     const g = buildGalaxy(isMobile ? 350 : 900, 350);
@@ -2172,6 +2249,7 @@ const CHAPTERS = [
     g.scale.setScalar(0.6);
     scene.add(g);
     distGalaxies.push(g);
+    mkGalaxyCore(g, 210);  // 350 × 0.6 缩放后的实际半径
   }
 
   // ============ 小行星带（火星 d=15 与木星 d=22 之间） ============
@@ -2358,7 +2436,8 @@ const CHAPTERS = [
   };
   window.addEventListener('resize', _spResize);
 
-  // 点击行星 → 相机平滑切换到该天体为中心并拉近距离
+  // 点击行星 → 相机平滑切换到该天体为中心并拉近（俯视看山川大海）；
+  // 点击星系核心 → 飞向该星系从斜上方俯瞰
   const _spRaycaster = new T.Raycaster();
   const _spNdc = new T.Vector2();
   function handlePlanetClick(cx, cy){
@@ -2366,18 +2445,24 @@ const CHAPTERS = [
     _spNdc.x = ((cx - rect.left) / rect.width) * 2 - 1;
     _spNdc.y = -((cy - rect.top) / rect.height) * 2 + 1;
     _spRaycaster.setFromCamera(_spNdc, camera);
-    const hits = _spRaycaster.intersectObjects(planetMeshes, false);
+    const hitList = planetMeshes.concat(galaxyCores, [sun]);
+    const hits = _spRaycaster.intersectObjects(hitList, false);
     if (!hits.length) return;
     const hit = hits[0].object;
-    const name = hit.userData?.name || hit.userData?.planetName;
-    // 1) 相机目标切到该天体当前位置
-    targetCameraTarget.x = hit.position.x;
-    targetCameraTarget.z = hit.position.z;
-    // 2) 距离设为该天体半径 × 2.5（贴近但保留轮廓），并允许拉到 0.6（贴表面）
-    const r = hit.userData?.r || 1;
-    targetDistance = Math.max(r * 1.1, Math.min(800, r * 2.5));
-    // 3) 视场微调：拉近时 FOV 略微变窄，更接近"看清天体"
-    targetFOV = 55;
+    if (hit.userData?.isGalaxyCore){
+      // 星系：聚焦核心，拉到全貌距离从斜上方俯瞰
+      focusObj = hit.userData.galaxy;
+      targetDistance = Math.min(800, hit.userData.r * 1.1);
+      targetPitch = 0.6;
+      targetFOV = 60;
+      return;
+    }
+    // 行星/太阳：以该天体为中心，贴到近处（半径×2.2），略俯视
+    focusObj = hit;
+    const r = hit.userData?.r || 3;
+    targetDistance = Math.max(r * 1.15, Math.min(800, r * 2.2));
+    targetPitch = 0.32;
+    targetFOV = 52;
   }
 
   // 动画循环
@@ -2443,15 +2528,28 @@ const CHAPTERS = [
   window.__splashDebug = () => ({
     yaw, pitch, distance, fov: camera.fov,
     planets: planetMeshes.length,
+    focus: focusObj ? (focusObj.userData?.name || focusObj.userData?.isGalaxyCore && 'galaxy' || 'obj') : 'earth',
+    camTarget: { x: cameraTarget.x.toFixed(1), y: cameraTarget.y.toFixed(1), z: cameraTarget.z.toFixed(1) },
     sun: sun.position.toArray(),
     galaxy: mainGalaxy.position.toArray(),
     angles: planetMeshes.map(m => m.userData.angle),
     planetPos: planetMeshes.map(m => [m.position.x.toFixed(2), m.position.z.toFixed(2)])
   });
   window.__splashTriggerDive = () => {
+    focusObj = null;  // 俯冲进相册前回到地球
     targetDistance = 6;
     targetPitch = -0.2;
     targetFOV = 85;
+  };
+  // 把天体/星系投影到屏幕坐标（测试用：定位点击目标；galaxy0=主星系）
+  window.__splashProject = (key) => {
+    let obj = null;
+    if (key === 'sun') obj = sun;
+    else if (/^galaxy[0-3]$/.test(key)) obj = +key.slice(6) === 0 ? mainGalaxy : distGalaxies[+key.slice(6) - 1];
+    else obj = planetMeshes.find(p => p.userData.name === key);
+    if (!obj) return null;
+    const v = obj.getWorldPosition(new T.Vector3()).project(camera);
+    return { x: (v.x + 1) / 2 * window.innerWidth, y: (-v.y + 1) / 2 * window.innerHeight, inFront: v.z < 1 };
   };
   window.__disposeSplash = () => {
     alive = false;
