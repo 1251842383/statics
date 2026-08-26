@@ -767,8 +767,8 @@ img{-webkit-user-drag:none;user-drag:none;-webkit-touch-callout:none}
 .is-desktop .scene-text{
   font-size:clamp(1.05rem,1.4vw,1.3rem);line-height:2.4;max-width:680px;
 }
-/* book 在大屏更宽 */
-.is-desktop .book{width:auto;max-width:640px;height:90%}
+/* book 在大屏更宽（必须给确定宽度：book-spread 是 absolute，width:auto 在 flex 容器里会塌缩成 0） */
+.is-desktop .book{width:min(640px,52vw);max-width:640px;height:90%}
 /* flow 大屏更多卡片 */
 .is-desktop .flow-card{width:clamp(220px,24vw,360px);height:clamp(140px,16vw,220px)}
 /* stack cinema 大屏更大 */
