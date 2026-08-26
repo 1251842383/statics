@@ -28,7 +28,7 @@ img{-webkit-user-drag:none;user-drag:none;-webkit-touch-callout:none}
 /* ============== Splash 星空漩涡 ============== */
 #splash{
   position:fixed;inset:0;z-index:9999;
-  background:radial-gradient(ellipse at center,#1a0e2a 0%,#08040e 70%,#000 100%);
+  background:#02010a;  /* fallback 深色，scene.background 加载后会被覆盖 */
   display:flex;flex-direction:column;align-items:center;justify-content:center;
   transition:opacity 1.2s ease,visibility 1.2s ease;
 }
@@ -46,6 +46,25 @@ img{-webkit-user-drag:none;user-drag:none;-webkit-touch-callout:none}
 @keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
 @keyframes titleIn{from{opacity:0;transform:translateY(30px) scale(.95);filter:blur(8px)}to{opacity:1;transform:translateY(0) scale(1);filter:blur(0)}}
 @keyframes heartbeat{0%,100%{transform:scale(1)}15%{transform:scale(1.35)}30%{transform:scale(1)}45%{transform:scale(1.2)}}
+
+/* ============== Splash 百科面板 ============== */
+.space-detail{
+  position:fixed;left:max(28px,env(safe-area-inset-left));bottom:max(140px,calc(env(safe-area-inset-bottom) + 110px));
+  z-index:10000;max-width:380px;padding:18px 22px;border-radius:14px;
+  background:rgba(10,8,22,.72);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  border:1px solid rgba(255,200,180,.18);color:#f8e8d4;
+  box-shadow:0 8px 32px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.06);
+  opacity:0;transform:translateY(14px);transition:opacity .6s ease,transform .6s ease;
+  pointer-events:none;font-family:"Noto Serif SC",serif;
+}
+.space-detail.show{opacity:1;transform:translateY(0);pointer-events:auto}
+.space-detail .sd-zh{font-size:1.25rem;font-weight:400;letter-spacing:.22em;color:#fff2c8;margin-bottom:10px}
+.space-detail .sd-desc{font-size:.9rem;line-height:1.8;color:rgba(248,232,212,.85);letter-spacing:.04em}
+.space-detail .sd-close{position:absolute;top:6px;right:10px;font-size:1.2rem;color:rgba(248,232,212,.5);cursor:pointer;line-height:1;padding:4px 8px;border-radius:50%;transition:background .3s ease,color .3s ease}
+.space-detail .sd-close:hover{color:#fff;background:rgba(255,255,255,.08)}
+@media(max-width:600px){
+  .space-detail{left:14px;right:14px;max-width:none;bottom:max(120px,calc(env(safe-area-inset-bottom) + 96px));padding:14px 16px}
+}
 
 /* ============== 3D 球面首页 ============== */
 #home{
@@ -2369,10 +2388,202 @@ const CHAPTERS = [
   scene.add(buildStarfield(isMobile?100:240, 220, 520, spriteWarm));    // 中景暖星
   scene.add(buildStarfield(isMobile?160:360, 520, 1200, spritePurple)); // 远景蓝紫
 
+  // ============ 银河实景背景 ============
+  // 优先 ESO 360° 全景（8MB，真实银河图像），其次 threejs.org，再 fallback homer-jay
+  (function loadMilkyWay(){
+    const URLS = [
+      'https://cdn.eso.org/images/large/eso0932a.jpg',
+      'https://threejs.org/examples/textures/2294472375_24a3b8ef46_o.jpg',
+      'https://cdn.jsdelivr.net/gh/homer-jay/solar-system-textures@master/stars_milky_way.jpg'
+    ];
+    function applyTex(tex){
+      tex.colorSpace = T.SRGBColorSpace;
+      tex.mapping = T.EquirectangularReflectionMapping;
+      scene.background = tex;
+      window.__milkyWayTex = tex;
+    }
+    function tryLoad(i){
+      if (i >= URLS.length) return;
+      const loader = new T.TextureLoader();
+      loader.crossOrigin = 'anonymous';
+      loader.load(URLS[i], t => applyTex(t), undefined, () => tryLoad(i + 1));
+    }
+    tryLoad(0);
+  })();
+
+  // ============ 百科全书：标签 + 详情面板 ============
+  // 每个天体都有中英文 + 一句简介 + 真实数据（半径 / 距离 / 公转）
+  const WIKI = {
+    sun: {
+      zh: '太阳', en: 'Sun',
+      desc: '太阳系中心的 G2V 型主序星,占系统总质量的 99.86%。表面温度约 5,500°C,核心达 1,500 万°C,通过氢聚变发光,每秒将约 4 亿吨物质转化为能量。'
+    },
+    mercury: {
+      zh: '水星', en: 'Mercury',
+      desc: '距太阳最近的行星,直径 4,879 km。表面布满陨石坑,白天 430°C、夜晚 -180°C,温差全太阳系最大。一天比一年长。'
+    },
+    venus: {
+      zh: '金星', en: 'Venus',
+      desc: '太阳系最热的行星,浓密二氧化碳大气造成强烈温室效应,表面约 465°C。自转方向与其他行星相反,被称为"晨星"或"昏星"。'
+    },
+    earth: {
+      zh: '地球', en: 'Earth',
+      desc: '我们的家园,直径 12,742 km,71% 被海洋覆盖。是目前已知唯一存在生命的天体,平均表面温度约 15°C。'
+    },
+    mars: {
+      zh: '火星', en: 'Mars',
+      desc: '"红色行星",表面氧化铁赋予其锈红外观。拥有太阳系最高的山(奥林帕斯山,21 km)和最深的谷。地下可能存在液态水。'
+    },
+    jupiter: {
+      zh: '木星', en: 'Jupiter',
+      desc: '太阳系最大的行星,直径 139,820 km,是地球的 11 倍。大红斑是持续了 350+ 年的巨型风暴。已确认 95 颗卫星。'
+    },
+    saturn: {
+      zh: '土星', en: 'Saturn',
+      desc: '以壮观的环系闻名,环主要由冰粒和岩石碎片构成,直径达 28 万 km 但厚度仅 10 米级。土星密度比水低,理论上能浮在水上。'
+    },
+    uranus: {
+      zh: '天王星', en: 'Uranus',
+      desc: '太阳系最冷的行星(最低 -224°C),自转轴倾倒 98°,几乎是"躺着"绕太阳公转。大气富含甲烷,呈青蓝色。'
+    },
+    neptune: {
+      zh: '海王星', en: 'Neptune',
+      desc: '距太阳最远的行星,平均距离 45 亿 km。拥有太阳系最强的风,可达 2,100 km/h。大气中的甲烷使其呈深蓝色。'
+    },
+    moon: {
+      zh: '月球', en: 'Moon',
+      desc: '地球唯一的天然卫星,直径 3,474 km,是太阳系第五大卫星。距地球 38.4 万 km,表面布满陨石坑和月海(玄武岩平原)。'
+    },
+    asteroidBelt: {
+      zh: '小行星带', en: 'Asteroid Belt',
+      desc: '位于火星与木星轨道之间,包含数百万颗小行星,但总质量仅月球的 4%。谷神星是其中最大的天体,直径约 940 km。'
+    },
+    mainGalaxy: {
+      zh: '银河系', en: 'Milky Way',
+      desc: '棒旋星系,直径约 10 万光年,含 1,000-4,000 亿颗恒星。太阳系位于猎户臂上,距银心约 2.6 万光年。'
+    },
+    distGalaxies: [
+      { zh: '仙女星系', en: 'Andromeda (M31)', desc: '距地球 254 万光年,是银河系最近的大型旋涡星系。正在以 110 km/s 接近银河,约 45 亿年后将与银河系合并。' },
+      { zh: '三角星系', en: 'Triangulum (M33)', desc: '本星系群第三大星系,距地球 273 万光年。可见直径约 7 万光年,是肉眼可见最远的天体之一。' },
+      { zh: '麦哲伦星云', en: 'Large Magellanic Cloud', desc: '银河系的伴星系,距地球约 16 万光年。富含星形成区,1987 年 的超新星爆发是 400 年来最近的超新星。' }
+    ]
+  };
+  // 卫星名称
+  const SAT_NAMES = {
+    iss: '国际空间站',
+    hubble: '哈勃望远镜',
+    tiangong: '天宫空间站'
+  };
+
+  // ---------- 标签 sprite 工厂 ----------
+  function makeLabelTexture(text, opts){
+    const o = Object.assign({ font: '"Noto Serif SC",serif', size: 36, color: '#fff7e8', glow: 'rgba(255,180,140,.8)' }, opts);
+    const c = document.createElement('canvas');
+    const ctx = c.getContext('2d');
+    ctx.font = `300 ${o.size}px ${o.font}`;
+    const tw = ctx.measureText(text).width;
+    c.width = Math.ceil(tw + o.size * 1.6);
+    c.height = Math.ceil(o.size * 2);
+    ctx.font = `300 ${o.size}px ${o.font}`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.shadowColor = o.glow;
+    ctx.shadowBlur = o.size * 0.4;
+    ctx.fillStyle = o.color;
+    ctx.fillText(text, c.width / 2, c.height / 2);
+    const tex = new T.CanvasTexture(c);
+    tex.colorSpace = T.SRGBColorSpace;
+    return tex;
+  }
+  function makeLabelSprite(text, opts){
+    const tex = makeLabelTexture(text, opts);
+    const sm = new T.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, depthTest: true, blending: T.AdditiveBlending });
+    const sp = new T.Sprite(sm);
+    sp.scale.set(2.2, 2.2 * tex.image.height / tex.image.width, 1);
+    return sp;
+  }
+  // 标签大小自适应：camera 距离越远，标签按距离线性放大（保持屏幕大小近似恒定）
+  const _labelGroup = new T.Group();
+  scene.add(_labelGroup);
+  const labels = [];   // { sp, obj, baseScale, dist }
+
+  function addLabel(text, attachTo, opts, dist){
+    const sp = makeLabelSprite(text, opts);
+    sp.position.set(0, attachTo.userData?.r ? attachTo.userData.r * 1.6 : 1.5, 0);
+    sp.renderOrder = 10;
+    attachTo.add(sp);
+    labels.push({ sp, obj: attachTo, baseScale: sp.scale.x, dist: dist || 30 });
+  }
+  // 给每个行星加中文名
+  planetMeshes.forEach(m => {
+    const w = WIKI[m.userData.name];
+    if (w) addLabel(w.zh, m, { size: 36, glow: 'rgba(255,180,200,.9)', color: '#fff5ec' });
+  });
+  // 月亮
+  const earthM = planetMeshes.find(p => p.userData.name === 'earth');
+  if (earthM && earthM.userData.moonMesh){
+    addLabel(WIKI.moon.zh, earthM.userData.moonMesh, { size: 26, glow: 'rgba(220,220,255,.7)', color: '#eef2ff' }, 8);
+  }
+  // 太阳
+  addLabel(WIKI.sun.zh, sun, { size: 44, glow: 'rgba(255,180,80,.95)', color: '#fff2c8' }, 50);
+  // 小行星带
+  addLabel(WIKI.asteroidBelt.zh, asteroids, { size: 30, glow: 'rgba(180,140,100,.8)', color: '#ffe6d0' }, 40);
+  // 银河主星系
+  addLabel(WIKI.mainGalaxy.zh, mainGalaxy, { size: 56, glow: 'rgba(220,200,255,.85)', color: '#ffe6ff' }, 500);
+  // 远景星系
+  distGalaxies.forEach((g, gi) => {
+    const w = WIKI.distGalaxies[gi];
+    if (w) addLabel(w.zh, g, { size: 36, glow: 'rgba(255,200,220,.8)', color: '#fff0f5' }, 350);
+  });
+  // 卫星：每颗单独加 sprite（挂在 satGroup 上）
+  planetMeshes.forEach(m => {
+    if (m.userData.satellites){
+      m.userData.satellites.forEach(sat => {
+        const zh = SAT_NAMES[sat.userData.imageKey];
+        if (!zh) return;
+        const sp = makeLabelSprite(zh, { size: 18, glow: 'rgba(140,200,255,.8)', color: '#e8f4ff' });
+        sp.position.set(0, 0.4, 0);
+        sp.renderOrder = 10;
+        sat.add(sp);
+        labels.push({ sp, obj: sat, baseScale: sp.scale.x, dist: 4 });
+      });
+    }
+  });
+
+  // ---------- 详情面板（点击天体弹出，悬浮左下角） ----------
+  const detailEl = document.createElement('div');
+  detailEl.className = 'space-detail';
+  detailEl.innerHTML = `
+    <div class="sd-zh"></div>
+    <div class="sd-en"></div>
+    <div class="sd-desc"></div>
+    <div class="sd-close">×</div>`;
+  // 挂到 splash 内（splash hidden 后随之一并隐藏，避免相册/章节场景里还浮着太空面板）
+  const _splashEl = document.getElementById('splash');
+  if (_splashEl) _splashEl.appendChild(detailEl);
+  else document.body.appendChild(detailEl);
+  detailEl.querySelector('.sd-close').addEventListener('click', e => {
+    e.stopPropagation();
+    detailEl.classList.remove('show');
+    _spDetailCurrent = null;
+  });
+  // 同步 HTML（中文模式：隐藏英文行）
+  detailEl.querySelector('.sd-en').style.display = 'none';
+  let _spDetailCurrent = null;
+  function showDetail(key, attachObj){
+    const w = key.startsWith('galaxy') ? WIKI.distGalaxies[+key.slice(6) - 1] || WIKI.mainGalaxy : WIKI[key];
+    if (!w) return;
+    detailEl.querySelector('.sd-zh').textContent = w.zh;
+    detailEl.querySelector('.sd-desc').textContent = w.desc;
+    detailEl.classList.add('show');
+    _spDetailCurrent = { key, attachObj };
+  }
+
   // 拖拽旋转（pointer + touch 双保险，iOS Safari 移动端 pointer 事件偶发失效）
   const _spMove = e => { onMove(e.clientX, e.clientY); };
   const _spUp = () => { isDragging = false; };
   let _downX = 0, _downY = 0, _downT = 0, _isClick = false;
+  // 拖动模式：'pan' 单指 FPS 平移（默认，可滑到银河深处）；'orbit' 双指/右键旋转视角
+  let _spMode = 'pan';
   function onDown(x, y){
     isDragging = true; lastX = x; lastY = y;
     _downX = x; _downY = y; _downT = performance.now(); _isClick = true;
@@ -2381,16 +2592,51 @@ const CHAPTERS = [
     if (!isDragging) return;
     const dx = x - lastX, dy = y - lastY;
     lastX = x; lastY = y;
-    targetYaw -= dx * 0.005;
-    targetPitch += dy * 0.005;
-    targetPitch = Math.max(-1.2, Math.min(1.2, targetPitch));
+    if (_spMode === 'pan'){
+      // 自由飞行模式：单指拖动 = 沿当前视线左右/上下平移相机（FPS 风格）
+      // 灵敏度按当前距离缩放：远景大幅度移动，近景小步位移
+      const k = Math.max(0.05, distance * 0.0035);
+      const cp = Math.cos(pitch);
+      // 相机的 right 向量 = (cos(yaw)*cp, 0, -sin(yaw)*cp)
+      const rightX = Math.cos(yaw)*cp, rightZ = -Math.sin(yaw)*cp;
+      // 相机的 up 向量
+      const upX = -Math.sin(yaw)*Math.sin(pitch), upY = Math.cos(pitch), upZ = -Math.cos(yaw)*Math.sin(pitch);
+      const px = -dx * k;
+      const py = dy * k;
+      // 平移 focusObj / cameraTarget
+      if (focusObj){
+        focusObj.position.x += rightX * px + upX * py;
+        focusObj.position.y += upY * py;
+        focusObj.position.z += rightZ * px + upZ * py;
+      } else {
+        cameraTarget.x += rightX * px + upX * py;
+        cameraTarget.y += upY * py;
+        cameraTarget.z += rightZ * px + upZ * py;
+        targetCameraTarget.x = cameraTarget.x;
+        targetCameraTarget.y = cameraTarget.y;
+        targetCameraTarget.z = cameraTarget.z;
+      }
+    } else {
+      // 经典轨道模式：拖动 → 绕聚焦点旋转
+      targetYaw -= dx * 0.005;
+      targetPitch += dy * 0.005;
+      targetPitch = Math.max(-1.2, Math.min(1.2, targetPitch));
+    }
     if (Math.hypot(x - _downX, y - _downY) > 6) _isClick = false;  // 移动超过 6px 视为拖拽
   }
   // pointer 事件（桌面 + 大多数移动浏览器）
-  c.addEventListener('pointerdown', e => { onDown(e.clientX, e.clientY); e.preventDefault(); });
+  c.addEventListener('pointerdown', e => {
+    // 鼠标右键 = 旋转视角；左键 = 平移（飞行）
+    _spMode = (e.pointerType === 'mouse' && e.button === 2) ? 'orbit' : 'pan';
+    if (e.button === 2) e.preventDefault();
+    onDown(e.clientX, e.clientY);
+    e.preventDefault();
+  });
+  // 屏蔽 splash 上的右键菜单（防止右键拖动时弹出菜单）
+  c.addEventListener('contextmenu', e => e.preventDefault());
   window.addEventListener('pointermove', _spMove);
   window.addEventListener('pointerup', e => {
-    const wasClick = _isClick && (performance.now() - _downT) < 350;
+    const wasClick = _isClick && (performance.now() - _downT) < 350 && _spMode === 'pan';
     _spUp();
     if (wasClick) handlePlanetClick(e.clientX, e.clientY);
   });
@@ -2413,12 +2659,14 @@ const CHAPTERS = [
       pinchD0 = Math.hypot(dx, dy);
       pinchTar0 = targetDistance;
       _spTouchActive = false;  // 进入 pinch 模式，禁用单指拖拽
+      _spMode = 'orbit';        // 双指 = 旋转 + 缩放
     } else if (e.touches.length === 1){
-      // 单指：开始记下点击起点（用于区分 tap / drag）
+      // 单指：开始记下点击起点（用于区分 tap / drag）—— 单指 = 自由飞行
       const t = e.touches[0];
       _downX = t.clientX; _downY = t.clientY; _downT = performance.now();
       _isClick = true;
       _spTouchActive = true;
+      _spMode = 'pan';
     }
   }, { passive: true });
   // 合并：touchmove 处理单指拖拽 + 双指 pinch（避免重复绑定 touchmove）
@@ -2455,29 +2703,56 @@ const CHAPTERS = [
   // 点击星系核心 → 飞向该星系从斜上方俯瞰
   const _spRaycaster = new T.Raycaster();
   const _spNdc = new T.Vector2();
+  // 所有可被 raycaster 命中的天体（不递归子节点，避免被卫星 sprite / 标签 sprite 阻挡）
+  function _spCollectTargets(){
+    const list = planetMeshes.concat(galaxyCores, [sun, asteroids]);
+    // 月亮单独加（属于 earth 的子节点）
+    planetMeshes.forEach(p => { if (p.userData.moonMesh) list.push(p.userData.moonMesh); });
+    return list;
+  }
   function handlePlanetClick(cx, cy){
     const rect = c.getBoundingClientRect();
     _spNdc.x = ((cx - rect.left) / rect.width) * 2 - 1;
     _spNdc.y = -((cy - rect.top) / rect.height) * 2 + 1;
     _spRaycaster.setFromCamera(_spNdc, camera);
-    const hitList = planetMeshes.concat(galaxyCores, [sun]);
-    const hits = _spRaycaster.intersectObjects(hitList, false);
-    if (!hits.length) return;
+    const hits = _spRaycaster.intersectObjects(_spCollectTargets(), false);
+    if (!hits.length) { detailEl.classList.remove('show'); _spDetailCurrent = null; return; }
     const hit = hits[0].object;
+    // 解析 key：行星 / 太阳 / 星系 / 小行星带 / 月亮
+    let key = null;
     if (hit.userData?.isGalaxyCore){
-      // 星系：聚焦核心，拉到全貌距离从斜上方俯瞰
+      key = 'galaxy' + distGalaxies.indexOf(hit.userData.galaxy);
       focusObj = hit.userData.galaxy;
       targetDistance = Math.min(800, hit.userData.r * 1.1);
       targetPitch = 0.6;
       targetFOV = 60;
-      return;
+    } else if (hit === sun){
+      key = 'sun';
+      focusObj = hit;
+      targetDistance = 8;
+      targetPitch = 0.2;
+      targetFOV = 50;
+    } else if (hit === asteroids){
+      key = 'asteroidBelt';
+      focusObj = hit;
+      targetDistance = 25;
+      targetPitch = 0.4;
+      targetFOV = 55;
+    } else if (hit.userData?.isMoon){
+      key = 'moon';
+      focusObj = hit;
+      targetDistance = Math.max(hit.userData.orbitR * 1.5, 6);
+      targetPitch = 0.2;
+      targetFOV = 50;
+    } else if (hit.userData?.name){
+      key = hit.userData.name;
+      focusObj = hit;
+      const r = hit.userData.r || 3;
+      targetDistance = Math.max(r * 1.15, Math.min(800, r * 2.2));
+      targetPitch = 0.32;
+      targetFOV = 52;
     }
-    // 行星/太阳：以该天体为中心，贴到近处（半径×2.2），略俯视
-    focusObj = hit;
-    const r = hit.userData?.r || 3;
-    targetDistance = Math.max(r * 1.15, Math.min(800, r * 2.2));
-    targetPitch = 0.32;
-    targetFOV = 52;
+    if (key) showDetail(key, hit);
   }
 
   // 动画循环
@@ -2534,6 +2809,28 @@ const CHAPTERS = [
     camera.fov += (targetFOV - camera.fov) * 0.06;
     camera.updateProjectionMatrix();
     applyCamera();
+
+    // 标签随距离自动调节大小（保持屏幕近似恒定）：远景适度放大让标签可见，近景缩小避免遮天体
+    const camPos = camera.position;
+    const camDir = new T.Vector3(); camera.getWorldDirection(camDir);
+    for (let li = 0; li < labels.length; li++){
+      const lab = labels[li];
+      const wpos = lab.obj.getWorldPosition(new T.Vector3());
+      const dCam = wpos.distanceTo(camPos);
+      // 标签基础大小按目标距离线性放大：屏幕大小 ≈ baseScale * dCam / refDist
+      // baseScale 是 sprite 在 obj 局部坐标的大小；sprite.scale 已是 baseScale
+      // 这里再额外按世界距离补偿：越远越放大（保持 ~baseScale * dist/ref）
+      const refD = Math.max(1, lab.dist);
+      const k = Math.max(0.3, Math.min(8, dCam / refD));
+      // 只对 sprite 整体做一次缩放（baseScale * k）
+      const sc = lab.baseScale * k * 0.55;
+      lab.sp.scale.x = sc;
+      lab.sp.scale.y = sc * (lab.sp.material.map.image.height / lab.sp.material.map.image.width);
+      // 当标签背对相机（z > 1）时隐藏
+      const v = wpos.clone().project(camera);
+      lab.sp.visible = (v.z < 1 && dCam < refD * 12);
+    }
+
     renderer.render(scene, camera);
     requestAnimationFrame(animate);
   }
