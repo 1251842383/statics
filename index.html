@@ -7490,6 +7490,7 @@ function playBGM(name){
   musicLoopTimer = setTimeout(() => playBGM(name), (loopDur - .3) * 1000);
 }
 function startMusic(){
+  _unlockIOSAudio();
   if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   if (audioCtx.state === 'suspended') audioCtx.resume();
   musicPlaying = true;
@@ -7506,6 +7507,7 @@ function switchBGM(name){
   currentBGM = name;
   playBGM(name);
 }
+window.__bgmDebug = () => ({ hasCtx: !!audioCtx, state: audioCtx ? audioCtx.state : null, playing: musicPlaying, bgm: currentBGM, loopTimerAlive: !!musicLoopTimer });
 
 // 提前激活 AudioContext：首次任意手势（移动 / 触摸 / 点击）创建并 resume
 // 这样 splash 期间就有 BGM（用 cosmic），无需等到 openBtn
@@ -7514,15 +7516,44 @@ function _lazyInitAudio(){
   audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   musicPlaying = true;
 }
+// iOS 静音键解锁：纯 WebAudio 在 iPhone 上会被硬件静音键直接静音。
+// 在用户手势内播放一段循环的静音 wav（HTMLAudioElement），把 audio session
+// 提升到 playback 类别，之后 oscillator 输出不再受静音键影响。
+let _silenceEl = null;
+function _makeSilenceWavUrl(){
+  const sr = 8000, len = sr * 0.2;  // 0.2s 静音
+  const buf = new ArrayBuffer(44 + len);
+  const v = new DataView(buf);
+  const ws = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+  ws(0, 'RIFF'); v.setUint32(4, 36 + len, true); ws(8, 'WAVE');
+  ws(12, 'fmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+  v.setUint32(24, sr, true); v.setUint32(28, sr, true); v.setUint16(32, 1, true); v.setUint16(34, 8, true);
+  ws(36, 'data'); v.setUint32(40, len, true);
+  return URL.createObjectURL(new Blob([buf], { type: 'audio/wav' }));
+}
+function _unlockIOSAudio(){
+  if (_silenceEl) return;
+  try {
+    _silenceEl = new Audio(_makeSilenceWavUrl());
+    _silenceEl.loop = true;
+    _silenceEl.volume = 1;  // 内容本身是纯静音
+    _silenceEl.play().catch(() => {});
+  } catch (e) {}
+}
 ['pointerdown','touchstart','keydown'].forEach(ev => {
   window.addEventListener(ev, () => {
+    _unlockIOSAudio();
     _lazyInitAudio();
     if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
   }, { once: false, passive: true });
 });
 // iOS 后台返回时唤醒音频
 document.addEventListener('visibilitychange', () => {
-  if (!document.hidden && audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+  if (!document.hidden){
+    if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+    // 静音解锁元素可能被系统暂停，回到前台时补播
+    if (_silenceEl && _silenceEl.paused) _silenceEl.play().catch(() => {});
+  }
 });
 
 // ============================================================
