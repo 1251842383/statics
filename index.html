@@ -513,6 +513,36 @@ img{-webkit-user-drag:none;user-drag:none;-webkit-touch-callout:none}
 #loader canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
 #loader canvas.loader-3d{z-index:0}
 #loader canvas.loader-fx{z-index:1}
+/* 加载完成后的"进入回忆球"按钮（右下角，CSS 3D 小球图标） */
+#loaderEnterBtn{
+  position:absolute;z-index:5;
+  right:max(34px,env(safe-area-inset-right));
+  bottom:max(72px,calc(env(safe-area-inset-bottom) + 56px));
+  display:inline-flex;align-items:center;gap:12px;
+  padding:13px 34px;
+  background:rgba(248,232,212,.06);border:1px solid rgba(248,232,212,.45);
+  color:#f8e8d4;font-family:"Noto Serif SC",serif;
+  font-size:clamp(.85rem,2.8vw,.95rem);letter-spacing:.3em;
+  cursor:pointer;border-radius:50px;
+  backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+  opacity:0;transform:translateY(16px);
+  animation:fadeUp .9s ease .15s forwards;
+  transition:background .3s ease,border-color .3s ease,transform .15s ease;
+}
+#loaderEnterBtn:active{transform:scale(.96);background:rgba(248,232,212,.14);border-color:#f8e8d4}
+#loaderEnterBtn .le-ball{
+  width:22px;height:22px;border-radius:50%;flex:0 0 auto;
+  background:
+    radial-gradient(circle at 30% 28%, rgba(255,255,255,.95) 0 6%, transparent 34%),
+    radial-gradient(circle at 68% 74%, rgba(255,142,179,.5) 0 18%, transparent 44%),
+    linear-gradient(135deg,#ffb3c8 0%,#c8a2ff 55%,#5a3d8a 100%);
+  box-shadow:0 0 14px rgba(255,142,179,.55),inset -3px -4px 8px rgba(0,0,0,.55);
+  animation:leBallSpin 3.2s linear infinite;
+}
+@keyframes leBallSpin{
+  0%{background-position:0% 0%,100% 100%,0% 50%}
+  100%{background-position:0% 0%,100% 100%,200% 50%}
+}
 .loader-inner{
   position:relative;z-index:3;
   display:flex;flex-direction:column;align-items:center;
@@ -4619,19 +4649,32 @@ async function buildSphereWall(photosData){
     await new Promise(r => setTimeout(r, _remainingWait));
   }
 
-  loader.classList.remove('show');
-  setTimeout(() => loader.remove(), 500);
-
-  // 销毁加载页 3D 特效（DNA、玫瑰粒子云、玫瑰几何、花瓣雨、点击涟漪等），节省 GPU
-  // 必须在 loader 隐藏后调用，否则用户看不到加载期间的 3D 互动特效
-  if (window.__destroyLoaderThree) window.__destroyLoaderThree();
-
-  // 整体显示球体（统一入场动画）
-  const showStart = performance.now();
-  photoMeshes.forEach((p, i) => {
-    photoEnterStart.set(p.mesh, showStart + i * 12);  // 12ms 间隔，错落入场
-  });
-  photoGroup.visible = true;
+  // ============ 加载完成：不再自动进入，右下角出现"进入回忆球"按钮 ============
+  // 按钮带一个 CSS 3D 小球（旋转渐变球面），用户点击后才进入 3D 球首页
+  const _enterSphere = () => {
+    loader.classList.remove('show');
+    setTimeout(() => loader.remove(), 500);
+    // 销毁加载页 3D 特效（DNA、玫瑰粒子云、玫瑰几何、花瓣雨、点击涟漪等），节省 GPU
+    // 必须在 loader 隐藏后调用，否则用户看不到加载期间的 3D 互动特效
+    if (window.__destroyLoaderThree) window.__destroyLoaderThree();
+    // 整体显示球体（统一入场动画）
+    const showStart = performance.now();
+    photoMeshes.forEach((p, i) => {
+      photoEnterStart.set(p.mesh, showStart + i * 12);  // 12ms 间隔，错落入场
+    });
+    photoGroup.visible = true;
+  };
+  if (document.getElementById('loader')){
+    const enterBtn = document.createElement('button');
+    enterBtn.id = 'loaderEnterBtn';
+    enterBtn.innerHTML = `<span class="le-ball"></span><span>进入回忆球</span>`;
+    enterBtn.addEventListener('click', _enterSphere, { once: true });
+    document.getElementById('loader').appendChild(enterBtn);
+    window.__loaderEnterReady = true;
+  } else {
+    // loader 已不存在（异常路径）：直接进入
+    _enterSphere();
+  }
 
   // 注意：不再后台加载全部章节原图 —— 117 张原图全部解码进内存会把
   // 移动端浏览器压垮（表现为页面被杀、从头重新加载）。
@@ -6628,16 +6671,34 @@ function renderARScene(ch){
     uniform float uHasTex;
     uniform vec3 uColor;
     varying vec2 vUv;
+    varying vec3 vN;   // 视空间法线
+    varying vec3 vV;   // 视空间视线方向（表面→相机）
     float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+    // 光谱彩虹（hue → RGB）
+    vec3 spectral(float h){
+      return 0.5 + 0.5 * cos(6.2832 * (h + vec3(0.0, 0.33, 0.67)));
+    }
     void main(){
       if (uHasTex < 0.5) discard;
-      // 全息色差：中心弱、边缘强，hover 时增强
+      // 视角倾斜度：正对 = 0，侧看 = 1（陀螺仪转手机 / 桌面拖拽时变化）
+      float facing = clamp(dot(normalize(vN), normalize(vV)), 0.0, 1.0);
+      float tilt = 1.0 - facing;
+      // 全息色差：中心弱、边缘强，hover 增强 + 视角倾斜时 RGB 分离加剧（全息卡质感）
       vec2 c = vUv - 0.5;
-      float ab = 0.004 + uHover * 0.007;
+      float ab = 0.004 + uHover * 0.007 + tilt * 0.014;
+      // 内视差：照片在卡内随视角反向平移（景深错觉）
+      vec2 par = vec2(normalize(vV).x, -normalize(vV).y) * tilt * 0.02;
       vec3 col;
-      col.r = texture2D(uMap, vUv + c * ab).r;
+      col.r = texture2D(uMap, vUv + c * ab + par).r;
       col.g = texture2D(uMap, vUv).g;
-      col.b = texture2D(uMap, vUv - c * ab).b;
+      col.b = texture2D(uMap, vUv - c * ab + par).b;
+      // 全息彩虹镀层：随视角倾斜扫过整张照片（hue = uv + 倾斜角）
+      float hue = fract(vUv.x * 0.35 + vUv.y * 0.12 + tilt * 2.2 + uTime * 0.02);
+      col += spectral(hue) * (tilt * 0.55 + uHover * tilt * 0.3);
+      // 角度高光带：一条随视线方位横扫的镜面亮带
+      float bandPos = 0.5 + (normalize(vV).x / max(0.25, abs(normalize(vV).z))) * 0.28;
+      float band = exp(-pow((vUv.x - bandPos) * 4.5, 2.0));
+      col += vec3(1.0, 0.98, 0.92) * band * (0.10 + tilt * 0.38 + uHover * 0.15);
       // 扫描流光
       float scan = sin(vUv.y * 90.0 - uTime * 2.2) * 0.5 + 0.5;
       col += uColor * scan * 0.10;
@@ -6673,9 +6734,14 @@ function renderARScene(ch){
         },
         vertexShader: /* glsl */`
           varying vec2 vUv;
+          varying vec3 vN;
+          varying vec3 vV;
           void main(){
             vUv = uv;
-            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+            vec4 mv = modelViewMatrix * vec4(position, 1.0);
+            vN = normalize(normalMatrix * normal);
+            vV = normalize(-mv.xyz);
+            gl_Position = projectionMatrix * mv;
           }
         `,
         fragmentShader: CARD_FS,
@@ -7560,6 +7626,22 @@ CHAPTERS.forEach(ch => {
   ch.bgm = map[ch.id] || 'lucky';
 });
 
+// 活跃音符登记：切歌时立即停掉旧曲目所有已排程音符（否则两曲混音最长 ~10s）
+const _activeOscs = new Set();
+function _killActiveNotes(fade = 0.08){
+  const now = audioCtx ? audioCtx.currentTime : 0;
+  _activeOscs.forEach(o => {
+    try {
+      // 快速淡出再停，避免爆音
+      if (o.gain){
+        o.gain.gain.cancelScheduledValues(now);
+        o.gain.gain.setTargetAtTime(0, now, fade / 3);
+      }
+      o.osc.stop(now + fade + 0.05);
+    } catch(e){}
+  });
+  _activeOscs.clear();
+}
 function playNote(freq, st, dur, vol, type){
   if (!audioCtx) return;
   const osc = audioCtx.createOscillator();
@@ -7570,6 +7652,9 @@ function playNote(freq, st, dur, vol, type){
   g.gain.exponentialRampToValueAtTime(vol*.5, st + dur*.5);
   g.gain.exponentialRampToValueAtTime(.001, st + dur);
   osc.connect(g).connect(audioCtx.destination);
+  const entry = { osc, gain: g };
+  _activeOscs.add(entry);
+  osc.onended = () => _activeOscs.delete(entry);
   osc.start(st); osc.stop(st + dur + .1);
 }
 function playPad(freqs, st, dur, vol){
@@ -7583,6 +7668,9 @@ function playPad(freqs, st, dur, vol){
     g.gain.linearRampToValueAtTime(vol, st + dur - .5);
     g.gain.exponentialRampToValueAtTime(.001, st + dur);
     osc.connect(g).connect(audioCtx.destination);
+    const entry = { osc, gain: g };
+    _activeOscs.add(entry);
+    osc.onended = () => _activeOscs.delete(entry);
     osc.start(st); osc.stop(st + dur + .1);
   });
 }
@@ -7626,10 +7714,11 @@ function switchBGM(name){
   if (!audioCtx || !musicPlaying || !name) return;
   if (currentBGM === name) return;
   if (musicLoopTimer) clearTimeout(musicLoopTimer);
+  _killActiveNotes();   // 立即停旧曲，防止两曲混音
   currentBGM = name;
   playBGM(name);
 }
-window.__bgmDebug = () => ({ hasCtx: !!audioCtx, state: audioCtx ? audioCtx.state : null, playing: musicPlaying, bgm: currentBGM, loopTimerAlive: !!musicLoopTimer });
+window.__bgmDebug = () => ({ hasCtx: !!audioCtx, state: audioCtx ? audioCtx.state : null, playing: musicPlaying, bgm: currentBGM, loopTimerAlive: !!musicLoopTimer, activeNotes: _activeOscs.size });
 
 // 提前激活 AudioContext：首次任意手势（移动 / 触摸 / 点击）创建并 resume
 // 这样 splash 期间就有 BGM（用 cosmic），无需等到 openBtn
