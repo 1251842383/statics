@@ -366,6 +366,9 @@ img{-webkit-user-drag:none;user-drag:none;-webkit-touch-callout:none}
   opacity:0;transition:opacity .9s ease,transform .9s ease;transform:translateY(14px);
   text-shadow:0 0 18px rgba(255,140,180,.45)}
 .wish-page.show{opacity:.92;transform:translateY(0)}
+/* 字排队飞向心形时，底部文案随之隐去（字"离开"文案）；打散回归时重新浮现 */
+.wish-pages{transition:opacity .9s ease}
+.wish-pages.dim{opacity:0}
 .wish-tabs{position:absolute;bottom:clamp(56px,9vh,90px);left:50%;transform:translateX(-50%);z-index:5;
   display:flex;gap:14px;padding:8px 6px}
 .wish-tabs .ar-tab{color:rgba(255,210,225,.55);min-width:78px}
@@ -6758,11 +6761,11 @@ function renderWishScene(ch){
       sp.userData = {
         hx: hx * ring.scale, hy: hy * ring.scale,
         phase: charIdx * 0.35, big: ring.size > 80,
-        state: 'in',        // 'in' 飞入心 → 'attached' 贴附心 → 'out' 飞散/重组
-        startT: 1.0 + charIdx * 0.045,  // 入场开始时间
-        inT: 0,             // 入场结束时间
-        outT: 0,            // 飞散开始时间
-        pageX: 0, pageY: 0  // 重组成页时的目标坐标（屏幕空间，传入 vertex shader 偏移）
+        state: 'page',     // 'page' 初始(文案位) → 'in' 排队飞入心 → 'attached' 贴附 → 'out' 打散回归
+        flyRound: -1,      // 已消费的飞入轮次
+        startT: 0,         // 入场开始时间
+        inT: 0,            // 入场结束时间
+        outT: 0            // 飞散开始时间
       };
       wishGroup.add(sp);
       textSprites.push(sp);
@@ -6818,15 +6821,15 @@ function renderWishScene(ch){
     const dt = performance.now() - downT;
     const dy = (y ?? downY) - downY;
     if (dt < 280 && dy < -60) diveVel = -0.55;   // 负 = 向心形内部推进
-    // 短按（位移 <6px 且时长 >180ms）→ 视为 click，触发文案解散
+    // 短按（位移 <6px 且时长 >180ms）→ 视为 click，触发由 canvas click 监听器统一处理
     const totalDx = (x ?? downX) - downX;
     const totalDy = (y ?? downY) - downY;
     const totalDist = Math.hypot(totalDx, totalDy);
-    if (totalDist < 6 && dt > 180 && dt < 500){
-      // 触发由 canvas click 监听器统一处理
+    // 只有真实拖动（有位移）才屏蔽随后的 click；纯点击不置位
+    if (totalDist >= 6){
+      _wasDragging = true;
+      setTimeout(() => { _wasDragging = false; }, 30);
     }
-    _wasDragging = true;
-    setTimeout(() => { _wasDragging = false; }, 30);
   }
   // 滚轮缩放（桌面）
   canvas.addEventListener('wheel', e => {
@@ -6870,7 +6873,7 @@ function renderWishScene(ch){
       const dt = performance.now() - downT;
       const td = Math.hypot(e.changedTouches[0].clientX - downX, e.changedTouches[0].clientY - downY);
       if (td < 8 && dt > 160 && dt < 600 && !_wasDragging){
-        triggerFlyOut();
+        triggerAdvance();
       }
     }, { passive: true });
   }
@@ -6882,22 +6885,42 @@ function renderWishScene(ch){
   const stop = () => { running = false; };
   (ch._wishStop = stop);
   // 调试接口（测试用）
-  window.__wishDebug = () => ({ camZ, camZTarget, diveVel, textCount: textSprites.length });
+  window.__wishDebug = () => {
+    const states = {};
+    textSprites.forEach(sp => { states[sp.userData.state] = (states[sp.userData.state] || 0) + 1; });
+    return {
+      camZ, camZTarget, diveVel, textCount: textSprites.length,
+      page: currentPage + 1, states,
+      flyInAt: Math.round(flyInAt * 10) / 10,
+      flyOutAt: Math.round(flyOutAt * 10) / 10,
+      attachedAt: Math.round(attachedAt * 10) / 10,
+      pageAppearT: Math.round(pageAppearT * 10) / 10,
+      ts: Math.round(tsNow() * 10) / 10,
+      dim: pagesEl.classList.contains('dim')
+    };
+  };
   const _wishCleanupDebug = () => { delete window.__wishDebug; };
 
-  // ============ 文案页层（DOM）+ 翻页 tabs + 点击/手势触发 flyOut ============
-  // 时间线：
-  //   attached 进入 → 0.6s 后 DOM 文案浮现
-  //   用户点 tabs/心形 canvas/划过心形 → flyOut → 重组 → 新页
-  //   或 8s 无操作 → 自动 flyOut → 重组
+  // ============ 文案页层（DOM）+ 翻页 tabs + 点击/手势触发 ============
+  // 每页周期 ≈ 20s（含开始/结束默认时间）：
+  //   0-5s    初始状态：底部文案浮现 + 心形干净无字（开始默认 5s）
+  //   5s      无滑动 → 字一个个排队飞向心形贴上（手动滑动可提前触发）
+  //   ~8-18s  贴附心形（心跳呼吸）
+  //   ~18s    自动打散 → 字飞回底部重组文案（回到初始状态）
+  //   20s     切到下一个愿望页（三页轮转）
   const pagesEl = viewerStage.querySelector('.wish-pages');
   const tabsEl = viewerStage.querySelector('.wish-tabs');
   let currentPage = 0;
   let pageAppearT = 0;        // 当前页文案浮现时间
   let pageShown = false;      // 文案是否已浮现
+  let flyInAt = -1;           // 排队飞向心形的触发 ts（-1 = 未触发）
+  let flyInRound = 0;         // 飞入轮次（防止同一轮重复触发）
   let flyOutAt = -1;          // 触发解散的 ts（-1 = 未触发）
   let flyOutReason = null;    // 'auto' / 'manual' / 'tab'
-  const PAGE_AUTO_FLYOUT = 9; // attached 进入后 9s 无操作自动解散
+  let attachedAt = -1;        // 全部字符贴附完成的时间
+  const PAGE_FLYIN_DELAY = 5;   // 初始状态 5s 无操作 → 自动排队飞向心
+  const ATTACHED_SCATTER = 10;  // 贴附 10s → 自动打散回到初始状态
+  const PAGE_AUTO_SWITCH = 20;  // 每页总周期 20s → 自动切下一页
 
   function buildWishTabs(){
     tabsEl.innerHTML = '';
@@ -6908,10 +6931,15 @@ function renderWishScene(ch){
       b.addEventListener('click', e => {
         e.stopPropagation();
         if (i === currentPage) return;
-        // 直接跳到目标页：先解散当前，飞散期间切到目标
-        flyOutAt = tsNow();
-        flyOutReason = 'tab';
-        targetPageAfter = i;
+        const busy = textSprites.some(sp => ['in','attached','out'].includes(sp.userData.state));
+        if (busy){
+          // 已飞入/贴附：先解散，飞散落地后切到目标页
+          if (flyOutAt < 0){ flyOutAt = tsNow(); flyOutReason = 'tab'; }
+          targetPageAfter = i;
+        } else {
+          // 初始状态（字未上心）：直接切页
+          switchToPage(i);
+        }
       });
       tabsEl.appendChild(b);
     });
@@ -6935,6 +6963,40 @@ function renderWishScene(ch){
   function tsNow(){ return (performance.now() - t0) * 0.001; }
   let targetPageAfter = -1;
 
+  // 页面布局缓存：初始状态 sprite 在文案位停留较久，避免每帧 getBoundingClientRect
+  let _pageLayout = null;
+  function computePageLayout(){
+    try {
+      const r = canvas.getBoundingClientRect();
+      const pagesR = pagesEl.getBoundingClientRect();
+      if (pagesR.height < 4 || !wishPages[currentPage]) return;
+      _pageLayout = textSprites.map((_, si) => {
+        const lineHeight = pagesR.height / Math.max(1, wishPages[currentPage].lines.length);
+        const line = Math.floor(si / 6);   // 每 6 字一行（粗略）
+        const col = si % 6;
+        const pxCenter = pagesR.left + pagesR.width / 2;
+        const pxX = pxCenter - 60 + col * 22;
+        const pxY = pagesR.top + lineHeight * (line + 0.5);
+        const ndcX = ((pxX - r.left) / r.width) * 2 - 1;
+        const ndcY = -(((pxY - r.top) / r.height) * 2 - 1);
+        const worldX = ndcX * Math.tan(wishCam.fov * Math.PI / 360) * wishCam.aspect * camZ;
+        const worldY = ndcY * Math.tan(wishCam.fov * Math.PI / 360) * camZ;
+        return [worldX, worldY];
+      });
+    } catch(e){}
+  }
+  window.addEventListener('resize', () => computePageLayout());
+
+  // 切页：换文案 + 重置整轮节奏（字留在初始状态等下一轮 5s）
+  function switchToPage(i){
+    showPage(i, false);
+    pageAppearT = tsNow();
+    pageShown = true;
+    flyInAt = -1; flyOutAt = -1; attachedAt = -1; targetPageAfter = -1;
+    pagesEl.classList.remove('dim');
+    computePageLayout();
+  }
+
   buildWishTabs();
   // 首次文案浮现延后到 1.5s（等粒子成心形）
   let _initPageShown = false;
@@ -6944,39 +7006,32 @@ function renderWishScene(ch){
     showPage(0, false);
     pageAppearT = tsNow();
     pageShown = true;
+    computePageLayout();
   }
 
-  // 字在屏底的目标坐标（DOM 几何 → 投影到心形坐标空间）
-  function pageCharXY(pageIdx, charIdx){
-    const r = canvas.getBoundingClientRect();
-    const pagesR = pagesEl.getBoundingClientRect();
-    // 从 pagesR.top 取每行 24 px 步进，第 0 行 top，第 1 行 top+24... 粗略即可
-    const lineHeight = pagesR.height / Math.max(1, wishPages[pageIdx].lines.length);
-    const line = Math.floor(charIdx / 6);  // 每 6 字一行（粗略）
-    const col = charIdx % 6;
-    // 像素中心
-    const pxCenter = pagesR.left + pagesR.width / 2;
-    const pxX = pxCenter - 60 + col * 22;
-    const pxY = pagesR.top + lineHeight * (line + 0.5);
-    // 转换为世界空间：透视投影 → z = TEXT_Z
-    const ndcX = ((pxX - r.left) / r.width) * 2 - 1;
-    const ndcY = -(((pxY - r.top) / r.height) * 2 - 1);
-    const worldX = ndcX * Math.tan(wishCam.fov * Math.PI / 360) * wishCam.aspect * camZ;
-    const worldY = ndcY * Math.tan(wishCam.fov * Math.PI / 360) * camZ;
-    return [worldX, worldY];
-  }
-
-  // 触发动画：划入心形 / 点击心形 / 点击 tabs
-  function triggerFlyOut(){
-    if (flyOutAt > 0) return;  // 已在飞散
-    flyOutAt = tsNow();
-    flyOutReason = 'manual';
+  // 手势推进：初始/休整状态 → 字排队飞向心；已飞入/贴附 → 打散回初始状态
+  // 节流 1.5s：一次滑动会连续触发多个 checkSwipe，只推进一拍
+  let _lastAdvanceT = -10;
+  function triggerAdvance(){
+    const now = tsNow();
+    if (now - _lastAdvanceT < 1.5) return;
+    _lastAdvanceT = now;
+    const busy = textSprites.some(sp => ['in','attached','out'].includes(sp.userData.state));
+    if (busy){
+      if (flyOutAt < 0){ flyOutAt = now; flyOutReason = 'manual'; }
+    } else {
+      // 休整期手动再次触发：新一轮排队飞入
+      flyInAt = now;
+      flyInRound++;
+      flyOutAt = -1; attachedAt = -1;
+      pagesEl.classList.add('dim');
+    }
   }
   // canvas 点击触发（避开文字 canvas 让 heart 形心点击也算）
   canvas.addEventListener('click', e => {
     if (_wasDragging) return;
     e.stopPropagation();
-    triggerFlyOut();
+    triggerAdvance();
   });
   // 划过心形：鼠标/触摸进入 canvas 中心区域后，向心方向快速滑动
   let _swipeT = 0;
@@ -6987,7 +7042,7 @@ function renderWishScene(ch){
     const d = Math.hypot(x - cx, y - cy);
     if (d < r.width * 0.18){
       const now = performance.now();
-      if (now - _swipeT < 220) triggerFlyOut();
+      if (now - _swipeT < 220) triggerAdvance();
       _swipeT = now;
     }
   }
@@ -6996,32 +7051,9 @@ function renderWishScene(ch){
     if (e.touches.length === 1) checkSwipe(e.touches[0].clientX, e.touches[0].clientY);
   }, { passive: true });
 
-  // wishCtl：被 wishLoop 内部读取
-  const wishCtl = {
-    shouldFlyOut(ts, si){
-      // 仅第一字用来做全局判断
-      if (si !== 0) return false;
-      if (flyOutAt > 0) return true;
-      // 自动飞散：attached 后 9s
-      if (_initPageShown && ts - pageAppearT > PAGE_AUTO_FLYOUT){
-        flyOutAt = ts;
-        flyOutReason = 'auto';
-        return true;
-      }
-      return false;
-    }
-  };
-
-  // wish 章节当前页索引 → 把每个 sprite 的 pageXY 设为闭包
+  // wish 章节当前页索引 → 每个 sprite 的文案位坐标从缓存读取
   textSprites.forEach((sp, si) => {
-    sp.userData.pageXY = () => {
-      const pg = wishPages[currentPage];
-      // 把 sprite 索引 si 按行/列重排成页布局（粗略 8 列）
-      const cols = 7;
-      const line = Math.floor(si / cols);
-      const col = si % cols;
-      return pageCharXY(currentPage, line * cols + col);
-    };
+    sp.userData.pageXY = () => _pageLayout ? _pageLayout[si] : [0, -2.5];
   });
 
   function wishLoop(){
@@ -7068,40 +7100,50 @@ function renderWishScene(ch){
     camZ += (camZTarget - camZ) * 0.06;
     wishCam.position.z = camZ;
 
-    // 文字围心：每个 sprite 按 state 走 in → attached → out
-    // in 阶段：从起始偏移飞向心形轮廓位置
+    // 文字围心：每个 sprite 按 state 走 page → in → attached → out → page
+    // page：初始状态，字停在文案位（DOM 文案负责显示，sprite 隐藏）
+    // in：从文案位一个个排队飞向心形轮廓位置
     // attached：贴在心形上，随心跳呼吸
-    // out：解散为心外飞散 → 重组成底部页 → 新一轮 in
+    // out：解散为心外飞散 → 飞回底部文案位 → 回到初始状态
     const hb = 1 + 0.045 * Math.sin(ts * 5.5);
     textSprites.forEach((sp, si) => {
       const ud = sp.userData;
-      // 跳到 attached：每个字入场完成后 3.5 s 自动转入 attached
-      if (ud.state === 'in' && ud.inT && ts > ud.inT + 3.5){
-        ud.state = 'attached';
-        ud.stayT = ts;
+      // 初始状态 → 排队飞入（flyInAt 触发，字与字错开排队；轮次防重复）
+      if (ud.state === 'page' && flyInAt > 0 && ud.flyRound !== flyInRound){
+        ud.state = 'in';
+        ud.flyRound = flyInRound;
+        ud.startT = flyInAt + 0.03 * si;
+        ud.inT = 0;
       }
-      // 跳到 out：用户点击 / 划过 / 满 6 s 后自动解散
-      if (ud.state === 'attached' && wishCtl.shouldFlyOut(ts, si)){
+      // 飞入完成 → 贴附
+      if (ud.state === 'in' && ud.inT && ts > ud.inT + 0.15){
+        ud.state = 'attached';
+        if (si === textSprites.length - 1) attachedAt = ts;
+      }
+      // 贴附/飞入中 → 打散回初始状态（flyOutAt 触发）
+      if ((ud.state === 'attached' || ud.state === 'in') && flyOutAt > 0 && !ud.outT){
         ud.state = 'out';
         ud.outT = ts;
       }
-      // 跳到新一轮 in：out 阶段 1.8s 飞散 + 0.7s 重组成页完成
+      // 打散完成 → 回到初始状态（停在文案位，等下一轮/切页）
       if (ud.state === 'out' && ud.outT && ts > ud.outT + 2.5){
-        ud.state = 'in';
-        ud.startT = ts + 0.05 * si;
-        ud.inT = 0; ud.outT = 0; ud.stayT = 0;
+        ud.state = 'page';
+        ud.inT = 0; ud.outT = 0; ud.startT = 0;
       }
 
       let tx, ty, tz, opacity;
-      if (ud.state === 'in'){
-        // 从散乱起始位置 (随机角度散开) 飞向心形位置
-        const seedA = ud.phase * 7.3;
-        const sx0 = Math.cos(seedA) * 4.5;
-        const sy0 = Math.sin(seedA) * 4.5 + 2.2;
+      if (ud.state === 'page'){
+        // 初始状态：字停在文案区，由 DOM 文案负责显示
+        const [pageX, pageY] = ud.pageXY ? ud.pageXY() : [0, -2.5];
+        tx = pageX; ty = pageY; tz = TEXT_Z;
+        opacity = 0;
+      } else if (ud.state === 'in'){
+        // 从文案位置排队飞向心形位置（字"离开"底部文案）
+        const [px0, py0] = ud.pageXY ? ud.pageXY() : [0, -2.5];
         const local = Math.min(1, Math.max(0, (ts - ud.startT) / 1.1));
         const ease = 1 - Math.pow(1 - local, 3);  // easeOutCubic
-        tx = sx0 + (ud.hx * hb - sx0) * ease;
-        ty = sy0 + (ud.hy * hb - sy0) * ease;
+        tx = px0 + (ud.hx * hb - px0) * ease;
+        ty = py0 + (ud.hy * hb - py0) * ease;
         tz = TEXT_Z + (1 - ease) * 1.4;
         opacity = ease;
         if (local >= 1 && !ud.inT) ud.inT = ts;
@@ -7157,19 +7199,31 @@ function renderWishScene(ch){
     });
 
     // 流程推进：
-    // 1) 粒子成心形（prog ≈ 1 且 ts > 1.5）→ 浮现第一段文案
-    // 2) 飞散完成（所有 sprite 已进入新一轮 in）→ 切页 + 重置
+    // 1) 粒子成心形（prog ≈ 1 且 ts > 1.5）→ 浮现第一段文案（初始状态）
+    // 2) 初始状态 5s 无滑动 → 字自动排队飞向心形（文案随字隐去）
+    // 3) 贴附 10s → 自动打散，字飞回底部重组文案（回到初始状态）
+    // 4) 页周期 20s（含开始/结束默认时间）→ 字回初始状态后自动切下一页
     if (!_initPageShown && ts > 1.5 && prog >= 0.85 && prog <= 1.15){
       maybeShowInitial();
     }
-    if (flyOutAt > 0 && ts - flyOutAt > 2.6){
-      // 飞散完成：新页浮现，重置 flyOutAt
-      const next = targetPageAfter >= 0 ? targetPageAfter : (currentPage + 1) % wishPages.length;
-      showPage(next, false);
-      pageAppearT = ts;
-      pageShown = true;
-      flyOutAt = -1;
-      targetPageAfter = -1;
+    if (flyInAt < 0 && _initPageShown && ts - pageAppearT > PAGE_FLYIN_DELAY
+        && textSprites.every(sp => sp.userData.state === 'page')){
+      flyInAt = ts;
+      flyInRound++;
+      pagesEl.classList.add('dim');
+    }
+    if (flyInAt > 0 && flyOutAt < 0 && attachedAt > 0 && ts > attachedAt + ATTACHED_SCATTER){
+      flyOutAt = ts;
+      flyOutReason = 'auto';
+    }
+    if (flyOutAt > 0 && targetPageAfter < 0 && ts > flyOutAt + 1.3){
+      pagesEl.classList.remove('dim');   // 打散回归：底部文案重新浮现
+    }
+    if (targetPageAfter >= 0 && flyOutAt > 0 && ts - flyOutAt > 2.6){
+      switchToPage(targetPageAfter);     // tab 跳页：飞散落地后切换
+    } else if (targetPageAfter < 0 && _initPageShown && ts - pageAppearT > PAGE_AUTO_SWITCH
+        && textSprites.every(sp => sp.userData.state === 'page')){
+      switchToPage((currentPage + 1) % wishPages.length);   // 20s 周期到点自动翻页
     }
 
     renderer.render(wishScene, wishCam);
