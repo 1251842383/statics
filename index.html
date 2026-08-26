@@ -2616,6 +2616,7 @@ const CHAPTERS = [
   let loadProgress = 0;
   window.__setLoaderProgress = (p) => { loadProgress = Math.max(0, Math.min(1, p)); };
   window.__setLoaderDone = () => { loaded = true; };
+  window.__loaderDebug = () => ({ camZ: camera.position.z, rotY: scene.rotation.y, rotX: scene.rotation.x });
 
   let w3d = window.innerWidth, h3d = window.innerHeight;
   function onResize3d(){
@@ -2628,7 +2629,11 @@ const CHAPTERS = [
 
   let t0 = performance.now();
   // 拖拽旋转：整个 3D 场景跟随手势转动（带惯性）——桌面鼠标 + 移动端触摸
+  // 双指捏合 / 滚轮：缩放（用户可自行放大看 DNA 细节）
   let _ldDrag = false, _ldLastX = 0, _ldLastY = 0, _ldVelY = 0;
+  let _ldZoom = null;      // 用户缩放目标 z（null = 未干预，走自动推镜）
+  let _ldPinchD = 0;
+  const _ldZoomClamp = z => Math.max(4.5, Math.min(22, z));
   const _ldHost = document.getElementById('loader');
   if (_ldHost){
     const ldDown = (x, y) => { _ldDrag = true; _ldLastX = x; _ldLastY = y; _ldVelY = 0; };
@@ -2641,22 +2646,41 @@ const CHAPTERS = [
       _ldLastX = x; _ldLastY = y;
     };
     const ldUp = () => { _ldDrag = false; };
+    const ldTouchDist = e => Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
     if (isDesktop){
       _ldHost.addEventListener('mousedown', e => ldDown(e.clientX, e.clientY));
       window.addEventListener('mousemove', e => ldMove(e.clientX, e.clientY), { passive: true });
       window.addEventListener('mouseup', ldUp, { passive: true });
+      _ldHost.addEventListener('wheel', e => {
+        _ldZoom = _ldZoomClamp((_ldZoom === null ? camera.position.z : _ldZoom) + e.deltaY * 0.012);
+      }, { passive: true });
     } else {
-      _ldHost.addEventListener('touchstart', e => ldDown(e.touches[0].clientX, e.touches[0].clientY), { passive: true });
-      _ldHost.addEventListener('touchmove', e => ldMove(e.touches[0].clientX, e.touches[0].clientY), { passive: true });
-      _ldHost.addEventListener('touchend', ldUp, { passive: true });
+      _ldHost.addEventListener('touchstart', e => {
+        if (e.touches.length >= 2){ _ldDrag = false; _ldPinchD = ldTouchDist(e); }
+        else ldDown(e.touches[0].clientX, e.touches[0].clientY);
+      }, { passive: true });
+      _ldHost.addEventListener('touchmove', e => {
+        if (e.touches.length >= 2){
+          const d = ldTouchDist(e);
+          if (_ldPinchD > 0 && d > 0)
+            _ldZoom = _ldZoomClamp((_ldZoom === null ? camera.position.z : _ldZoom) * _ldPinchD / d);
+          _ldPinchD = d;
+        } else ldMove(e.touches[0].clientX, e.touches[0].clientY);
+      }, { passive: true });
+      _ldHost.addEventListener('touchend', e => {
+        if (e.touches.length < 2) _ldPinchD = 0;
+        if (e.touches.length === 0) ldUp();
+      }, { passive: true });
     }
   }
 
   function animate3d(){
     if (!_loaderRunning) return;
     const t = (performance.now() - t0) * 0.001;
-    // 入场推镜：5 秒内 z 15 → 9（ease-out），之后不干预
-    if (t < 5){
+    // 入场推镜：5 秒内 z 15 → 9（ease-out）；用户捏合/滚轮后交给用户
+    if (_ldZoom !== null){
+      camera.position.z += (_ldZoom - camera.position.z) * 0.12;
+    } else if (t < 5){
       const e = t / 5;
       camera.position.z = 9 + 6 * Math.pow(1 - e, 3);
     }
