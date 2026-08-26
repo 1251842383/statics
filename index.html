@@ -2549,10 +2549,10 @@ const CHAPTERS = [
     const w = WIKI[m.userData.name];
     if (w) addLabel(w.zh, m, { size: 22, glow: 'rgba(255,170,120,.5)', color: '#e8d8b8' });
   });
-  // 月亮
+  // 月亮（refD 与行星一致，避免近距离观看时标签被放大到 8 倍上限）
   const earthM = planetMeshes.find(p => p.userData.name === 'earth');
   if (earthM && earthM.userData.moonMesh){
-    addLabel(WIKI.moon.zh, earthM.userData.moonMesh, { size: 18, glow: 'rgba(180,200,220,.5)', color: '#d8dce8' }, 8);
+    addLabel(WIKI.moon.zh, earthM.userData.moonMesh, { size: 15, glow: 'rgba(180,190,200,.35)', color: '#c8ccc8' }, 30);
   }
   // 太阳
   addLabel(WIKI.sun.zh, sun, { size: 28, glow: 'rgba(255,170,100,.7)', color: '#f8d8a8' }, 50);
@@ -2571,11 +2571,12 @@ const CHAPTERS = [
       m.userData.satellites.forEach(sat => {
         const zh = SAT_NAMES[sat.userData.imageKey];
         if (!zh) return;
-        const sp = makeLabelSprite(zh, { size: 18, glow: 'rgba(140,200,255,.8)', color: '#e8f4ff' });
+        // 字号/颜色与行星标签同级（refD=30 同行星），近距离时不被放大
+        const sp = makeLabelSprite(zh, { size: 14, glow: 'rgba(150,180,200,.35)', color: '#d8ccc0' });
         sp.position.set(0, 0.4, 0);
         sp.renderOrder = 10;
         sat.add(sp);
-        labels.push({ sp, obj: sat, baseScale: sp.scale.x, dist: 4 });
+        labels.push({ sp, obj: sat, baseScale: sp.scale.x, dist: 30 });
       });
     }
   });
@@ -2876,7 +2877,8 @@ const CHAPTERS = [
     sun: sun.position.toArray(),
     galaxy: mainGalaxy.position.toArray(),
     angles: planetMeshes.map(m => m.userData.angle),
-    planetPos: planetMeshes.map(m => [m.position.x.toFixed(2), m.position.z.toFixed(2)])
+    planetPos: planetMeshes.map(m => [m.position.x.toFixed(2), m.position.z.toFixed(2)]),
+    labelScale: labels.map(l => ({ t: l.sp.material.map.image.width > 0 ? Math.round(l.sp.scale.x * 100) / 100 : 0, d: l.dist }))
   });
   window.__splashTriggerDive = () => {
     focusObj = null;  // 俯冲进相册前回到地球
